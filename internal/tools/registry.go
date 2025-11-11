@@ -80,11 +80,9 @@ func (r *Registry) Get(name string) (*Tool, error) {
 	return tool, nil
 }
 
-// Search finds tools matching the given criteria.
+// Search finds tools matching the given criteria using fuzzy matching.
 func (r *Registry) Search(query, category string) []*Tool {
 	var results []*Tool
-
-	queryLower := strings.ToLower(query)
 
 	for _, tool := range r.tools {
 		// Filter by category if specified
@@ -92,11 +90,9 @@ func (r *Registry) Search(query, category string) []*Tool {
 			continue
 		}
 
-		// Filter by query if specified
+		// Filter by query if specified (with fuzzy matching)
 		if query != "" {
-			nameLower := strings.ToLower(tool.Name)
-			descLower := strings.ToLower(tool.Description)
-			if !strings.Contains(nameLower, queryLower) && !strings.Contains(descLower, queryLower) {
+			if !fuzzyMatch(query, tool.Name) && !fuzzyMatch(query, tool.Description) {
 				continue
 			}
 		}
