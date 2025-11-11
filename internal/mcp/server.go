@@ -167,7 +167,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 	// Register tool_search
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tool_search",
-		Description: "Search and discover available tools. Returns tool metadata with optional parameter schemas.",
+		Description: "Search and discover available tools. Returns tool metadata with optional parameter schemas. When searching for specific functionality, use 'summary' or 'detailed' level to see descriptions and determine if tools match your needs. Use 'names_only' for broad exploration only.",
 	}, s.handleToolSearch)
 
 	// Register tool_execute
@@ -191,7 +191,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 type ToolSearchInput struct {
 	Query       string `json:"query,omitempty" jsonschema:"Optional search term to filter tools by name or description"`
 	Category    string `json:"category,omitempty" jsonschema:"Optional category filter"`
-	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Detail level: 'names_only' (just names), 'summary' (name + description), 'detailed' (includes parameter schema), 'full_schema' (complete schema). Default: 'summary'"`
+	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Detail level: 'names_only' (just names, for broad exploration), 'summary' (name + description, recommended for targeted search), 'detailed' (includes parameter schema), 'full_schema' (complete schema). Default: 'summary'. Use 'summary' or 'detailed' when searching for specific functionality."`
 	Offset      int    `json:"offset,omitempty" jsonschema:"Number of results to skip for pagination. Default: 0"`
 	Limit       int    `json:"limit,omitempty" jsonschema:"Maximum number of results to return. Default: 50, max: 200"`
 }
