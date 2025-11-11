@@ -87,7 +87,7 @@ The official SDK provides:
 
 **Supported Transports:**
 - **Command (stdio)**: Execute local commands and communicate via stdin/stdout - most common for local tools
-- **SSE (Server-Sent Events)**: Connect to remote HTTP-based MCP servers - ideal for cloud services
+- **Streamable HTTP**: Connect to remote HTTP-based MCP servers using the modern standard (MCP spec 2025-03-26+) - ideal for cloud services
 - **In-Memory**: Direct in-process communication - useful for testing
 
 ## Quick Start
@@ -288,12 +288,12 @@ Define external MCP servers in the `mcpServers` section. OneMCP supports multipl
 }
 ```
 
-**2. HTTP Transport (SSE)** - Connect to remote MCP server via HTTP:
+**2. HTTP Transport (Streamable HTTP)** - Connect to remote MCP server via HTTP:
 ```json
 {
   "mcpServers": {
     "remote-server": {
-      "url": "https://api.example.com/mcp", // HTTP endpoint URL (SSE transport)
+      "url": "https://api.example.com/mcp", // HTTP endpoint URL (Streamable HTTP)
       "category": "api",
       "enabled": true
     }
@@ -301,12 +301,12 @@ Define external MCP servers in the `mcpServers` section. OneMCP supports multipl
 }
 ```
 
-**Note:** SSE transport is supported but being phased out in favor of Streamable HTTP in newer MCP specs. The `url` field maps to the SSE endpoint.
+**Note:** OneMCP uses Streamable HTTP transport (MCP spec 2025-03-26+) for all HTTP connections. This is the modern standard that replaces the deprecated SSE transport.
 
 **Configuration Fields:**
 - `command` (string) - Command to execute (for stdio transport)
 - `args` (array) - Command arguments (stdio only)
-- `url` (string) - HTTP URL (for SSE transport)
+- `url` (string) - HTTP endpoint URL (for Streamable HTTP transport)
 - `env` (object) - Environment variables (stdio only)
 - `category` (string) - Category for grouping tools
 - `enabled` (boolean) - Whether to load this server

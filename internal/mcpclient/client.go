@@ -21,11 +21,11 @@ type MCPClient struct {
 // MCPServerConfig represents configuration for an external MCP server.
 // Supports multiple transport types:
 // - Command transport (stdio): Provide "command" field
-// - HTTP transports (SSE, Streamable): Provide "url" field
+// - HTTP transports (Streamable HTTP, SSE): Provide "url" field
 type MCPServerConfig struct {
 	Command  string            `json:"command,omitempty"`  // Command to execute (for stdio transport)
 	Args     []string          `json:"args,omitempty"`     // Command arguments
-	URL      string            `json:"url,omitempty"`      // HTTP URL (for SSE/HTTP transport)
+	URL      string            `json:"url,omitempty"`      // HTTP URL (for Streamable HTTP or SSE transport)
 	Env      map[string]string `json:"env,omitempty"`      // Environment variables (stdio only)
 	Category string            `json:"category,omitempty"` // Category for grouping tools
 	Enabled  bool              `json:"enabled"`            // Whether to load this server
@@ -41,7 +41,8 @@ type Tool struct {
 // NewMCPClient creates a new MCP client connected to an external server.
 // Supports multiple transport types based on configuration:
 // - Command transport (stdio): When config.Command is provided
-// - SSE transport (HTTP): When config.URL is provided
+// - Streamable HTTP transport: When config.URL is provided (recommended for HTTP)
+// - SSE transport: Fallback for older servers (deprecated)
 func NewMCPClient(ctx context.Context, name string, config MCPServerConfig, logger *slog.Logger) (*MCPClient, error) {
 	// Create MCP client
 	client := mcp.NewClient(
@@ -57,12 +58,13 @@ func NewMCPClient(ctx context.Context, name string, config MCPServerConfig, logg
 
 	// Determine transport type based on configuration
 	if config.URL != "" {
-		// HTTP-based transport (SSE)
-		transport = &mcp.SSEClientTransport{
-			Endpoint: config.URL,
+		// HTTP-based transport (Streamable HTTP - modern standard)
+		transport = &mcp.StreamableClientTransport{
+			Endpoint:   config.URL,
+			MaxRetries: 5, // Default retry count
 		}
-		transportType = "sse"
-		logger.Info("Using SSE transport", "name", name, "endpoint", config.URL)
+		transportType = "streamable-http"
+		logger.Info("Using Streamable HTTP transport", "name", name, "endpoint", config.URL)
 	} else if config.Command != "" {
 		// Command transport (stdio)
 		cmd := exec.Command(config.Command, config.Args...)

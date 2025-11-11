@@ -3,7 +3,7 @@
     "searchResultLimit": 5
   },
   "mcpServers": {
-    "_comment_transports": "OneMCP supports multiple transports: 'command' for local stdio, 'url' for remote HTTP/SSE",
+    "_comment_transports": "OneMCP supports multiple transports: 'command' for local stdio, 'url' for remote Streamable HTTP",
 
     "playwright": {
       "command": "npx",
@@ -21,7 +21,7 @@
       "url": "https://api.example.com/mcp",
       "category": "api",
       "enabled": false,
-      "_comment": "Example HTTP/SSE transport - connect to remote MCP server"
+      "_comment": "Example Streamable HTTP transport - connect to remote MCP server (MCP spec 2025-03-26+)"
     },
     "memory": {
       "command": "npx",
