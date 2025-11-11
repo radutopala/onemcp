@@ -47,16 +47,19 @@ OneMCP Aggregator
 
 OneMCP includes several optimizations for token efficiency and speed:
 
-1. **Progressive Discovery**: Four detail levels (names_only → summary → detailed → full_schema)
-2. **Schema Caching**: External tool schemas cached at startup, no repeated fetching
-3. **Pagination**: Limit results to reduce token usage (default: 50, max: 200 per request)
-4. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
-5. **Single Round-Trip**: Batch execution combines multiple operations
+1. **Fixed Result Limit**: Returns exactly 5 tools per search to minimize token usage
+2. **Hybrid Schema Approach**: 5 tools inline + complete schema file for comprehensive exploration
+3. **Progressive Discovery**: Four detail levels (names_only → summary → detailed → full_schema)
+4. **Schema Caching**: External tool schemas cached at startup, no repeated fetching
+5. **Fuzzy Search**: Levenshtein distance algorithm handles typos without multiple queries
+6. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
+7. **Single Round-Trip**: Batch execution combines multiple operations
 
 **Token Usage Examples:**
-- `names_only` search: ~10 tokens per tool
-- `summary` search: ~50-100 tokens per tool
-- `full_schema` search: ~500-1000 tokens per tool
+- `names_only` search (5 tools): ~50 tokens total
+- `summary` search (5 tools): ~250-500 tokens total
+- `full_schema` search (5 tools): ~2500-5000 tokens total
+- Schema file path: ~50 tokens (read file separately for complete tool list)
 
 ## Technology
 
@@ -136,7 +139,7 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 ## Meta-Tools API
 
 ### 1. `tool_search`
-Discover available tools with optional filtering and pagination. Uses **fuzzy matching** to handle typos and small variations.
+Discover available tools with optional filtering. Uses **fuzzy matching** to handle typos and small variations. Returns exactly **5 tools per query** to minimize token usage.
 
 **Arguments:**
 - `query` (optional) - Search term to filter by name or description. Must be a single word for fuzzy matching (e.g., "browser", "navigate", "screenshot")
@@ -146,33 +149,34 @@ Discover available tools with optional filtering and pagination. Uses **fuzzy ma
   - `"summary"` - Name, category, and description (default)
   - `"detailed"` - Includes argument schema
   - `"full_schema"` - Complete schema with all details
-- `offset` (optional) - Number of results to skip (default: 0)
-- `limit` (optional) - Maximum results to return (default: 5, max: 200)
+- `offset` (optional) - Number of results to skip for pagination (default: 0)
 
 **Fuzzy Matching:** Query terms support fuzzy matching using Levenshtein distance, allowing small typos (e.g., "navgate" matches "navigate", "clik" matches "click"). The matching threshold adapts based on query length.
 
 **Schema Caching:** External tool schemas are cached at startup for fast repeated searches.
 
-**Example - Names only with pagination:**
-```json
-{
-  "tool_name": "tool_search",
-  "arguments": {
-    "detail_level": "names_only",
-    "limit": 10,
-    "offset": 0
-  }
-}
-```
+**Hybrid Approach:** Search returns exactly **5 tools inline** plus a `schema_file` path (`/tmp/onemcp-tools-schema.json`) containing **ALL executable tools with full schemas** (external and internal tools only, excluding meta-tools which are already exposed via MCP's `tools/list`). For comprehensive tool exploration, read the schema file using filesystem tools instead of paginating through search results. This reduces token usage while maintaining access to complete tool information.
 
-**Example - Full search:**
+**Example - Basic search:**
 ```json
 {
   "tool_name": "tool_search",
   "arguments": {
     "query": "navigate",
+    "detail_level": "summary"
+  }
+}
+```
+
+**Example - Paginated search:**
+```json
+{
+  "tool_name": "tool_search",
+  "arguments": {
+    "query": "browser",
     "category": "browser",
-    "detail_level": "full_schema"
+    "detail_level": "detailed",
+    "offset": 5
   }
 }
 ```
@@ -181,17 +185,20 @@ Discover available tools with optional filtering and pagination. Uses **fuzzy ma
 ```json
 {
   "total_count": 21,
-  "returned_count": 2,
+  "returned_count": 5,
   "offset": 0,
-  "limit": 50,
-  "has_more": false,
+  "limit": 5,
+  "has_more": true,
+  "schema_file": "/tmp/onemcp-tools-schema.json",
+  "message": "Showing 5 of 21 tools. For complete tool list with full schemas, read: /tmp/onemcp-tools-schema.json",
   "tools": [
     {
       "name": "playwright_browser_navigate",
       "category": "browser",
       "description": "Navigate to a URL",
       "schema": {...}
-    }
+    },
+    ...
   ]
 }
 ```

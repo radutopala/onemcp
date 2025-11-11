@@ -24,6 +24,7 @@ type AggregatorServer struct {
 	logger          *slog.Logger
 	registry        *tools.Registry
 	externalClients map[string]*mcpclient.MCPClient
+	schemaFilePath  string // Path to generated schema file
 }
 
 // NewAggregatorServer creates a new generic aggregator server
@@ -50,12 +51,17 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 		nil,
 	)
 
-	// Register meta-tools
+	// Register meta-tools (both in MCP server and registry)
 	if err := aggregator.registerMetaTools(server); err != nil {
 		return nil, fmt.Errorf("failed to register meta-tools: %w", err)
 	}
 
 	aggregator.server = server
+
+	// Generate schema file with all tools (after meta-tools are registered)
+	if err := aggregator.generateSchemaFile(); err != nil {
+		logger.Warn("Failed to generate schema file", "error", err)
+	}
 
 	return aggregator, nil
 }
@@ -146,8 +152,57 @@ func (s *AggregatorServer) connectExternalServer(ctx context.Context, name strin
 	return nil
 }
 
+// generateSchemaFile creates a JSON file with all tool schemas
+func (s *AggregatorServer) generateSchemaFile() error {
+	// Get all tools with full schemas
+	allTools := s.registry.Search("", "")
+
+	// Build tool metadata with full schemas
+	toolSchemas := make([]tools.ToolMetadata, len(allTools))
+	for i, tool := range allTools {
+		metadata := tools.ToolMetadata{
+			Name:        tool.Name,
+			Category:    tool.Category,
+			Description: tool.Description,
+		}
+
+		// Include full schema
+		if tool.InputSchema != nil {
+			if schemaMap, ok := tool.InputSchema.(map[string]any); ok {
+				metadata.Parameters = schemaMap
+			}
+		}
+
+		toolSchemas[i] = metadata
+	}
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(toolSchemas, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal tool schemas: %w", err)
+	}
+
+	// Write to temporary file
+	filePath := "/tmp/onemcp-tools-schema.json"
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write schema file: %w", err)
+	}
+
+	s.schemaFilePath = filePath
+	s.logger.Info("Generated tool schema file", "path", filePath, "tool_count", len(toolSchemas))
+
+	return nil
+}
+
 // Close shuts down all external MCP server connections.
 func (s *AggregatorServer) Close() error {
+	// Clean up schema file
+	if s.schemaFilePath != "" {
+		if err := os.Remove(s.schemaFilePath); err != nil {
+			s.logger.Warn("Failed to remove schema file", "path", s.schemaFilePath, "error", err)
+		}
+	}
+
 	for name, client := range s.externalClients {
 		if err := client.Close(); err != nil {
 			s.logger.Warn("Error closing external client", "name", name, "error", err)
@@ -167,7 +222,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 	// Register tool_search
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tool_search",
-		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns up to 5 tools by default. Use 'summary' or 'detailed' level to see descriptions and schemas.",
+		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns exactly 5 tools per query. Use 'summary' or 'detailed' level to see descriptions and schemas. For complete tool list, use the schema_file path returned in results.",
 	}, s.handleToolSearch)
 
 	// Register tool_execute
@@ -193,7 +248,6 @@ type ToolSearchInput struct {
 	Category    string `json:"category,omitempty" jsonschema:"Optional category filter"`
 	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Detail level: 'names_only' (just names, for broad exploration), 'summary' (name + description, recommended for targeted search), 'detailed' (includes parameter schema), 'full_schema' (complete schema). Default: 'summary'. Use 'summary' or 'detailed' when searching for specific functionality."`
 	Offset      int    `json:"offset,omitempty" jsonschema:"Number of results to skip for pagination. Default: 0"`
-	Limit       int    `json:"limit,omitempty" jsonschema:"Maximum number of results to return. Default: 5, max: 200"`
 }
 
 func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallToolRequest, input ToolSearchInput) (*mcp.CallToolResult, any, error) {
@@ -202,14 +256,8 @@ func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallTo
 		detailLevel = "summary"
 	}
 
-	// Set default limit and validate
-	limit := input.Limit
-	if limit == 0 {
-		limit = 5
-	}
-	if limit > 200 {
-		limit = 200
-	}
+	// Fixed limit of 5 tools
+	limit := 5
 
 	offset := input.Offset
 	if offset < 0 {
@@ -261,6 +309,8 @@ func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallTo
 		"limit":          limit,
 		"has_more":       end < totalCount,
 		"tools":          toolMetadata,
+		"schema_file":    s.schemaFilePath,
+		"message":        fmt.Sprintf("Showing %d of %d tools. For complete tool list with full schemas, read: %s", len(toolMetadata), totalCount, s.schemaFilePath),
 	}
 
 	// Convert result to JSON for the text content

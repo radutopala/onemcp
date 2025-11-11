@@ -32,6 +32,10 @@ func (s *AggregatorServerTestSuite) SetupTest() {
 	// Register test tools
 	s.registerTestTools(server)
 
+	// Regenerate schema file after registering test tools
+	err = server.generateSchemaFile()
+	require.NoError(s.T(), err, "Failed to regenerate schema file")
+
 	s.server = server
 	s.ctx = context.Background()
 }
@@ -186,7 +190,6 @@ func (s *AggregatorServerTestSuite) TestToolSearch_Pagination() {
 	// First page
 	input := ToolSearchInput{
 		DetailLevel: "names_only",
-		Limit:       2,
 		Offset:      0,
 	}
 
@@ -195,47 +198,104 @@ func (s *AggregatorServerTestSuite) TestToolSearch_Pagination() {
 
 	response := s.parseToolSearchResponse(result)
 
-	// Verify pagination fields
+	// Verify pagination fields with fixed limit of 5
 	require.Equal(s.T(), float64(0), response["offset"])
-	require.Equal(s.T(), float64(2), response["limit"])
-	require.Equal(s.T(), 2, int(response["returned_count"].(float64)))
-	require.True(s.T(), response["has_more"].(bool), "Should have more results")
+	require.Equal(s.T(), float64(5), response["limit"], "Should use fixed limit of 5")
+	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 5, "Should return at most 5 tools")
 
 	// Second page
-	input.Offset = 2
+	input.Offset = 5
 	result, _, err = s.server.handleToolSearch(s.ctx, nil, input)
 	require.NoError(s.T(), err)
 
 	response = s.parseToolSearchResponse(result)
-	require.Equal(s.T(), float64(2), response["offset"])
+	require.Equal(s.T(), float64(5), response["offset"])
+	require.Equal(s.T(), float64(5), response["limit"], "Should use fixed limit of 5")
 }
 
-// TestToolSearch_DefaultLimit tests the default limit
-func (s *AggregatorServerTestSuite) TestToolSearch_DefaultLimit() {
+// TestToolSearch_FixedLimit tests the fixed limit of 5
+func (s *AggregatorServerTestSuite) TestToolSearch_FixedLimit() {
 	input := ToolSearchInput{
 		DetailLevel: "names_only",
-		// No limit specified, should default to 50
 	}
 
 	result, _, err := s.server.handleToolSearch(s.ctx, nil, input)
 	require.NoError(s.T(), err)
 
 	response := s.parseToolSearchResponse(result)
-	require.Equal(s.T(), float64(5), response["limit"], "Should use default limit of 5")
+	require.Equal(s.T(), float64(5), response["limit"], "Should use fixed limit of 5")
+	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 5, "Should return at most 5 tools")
 }
 
-// TestToolSearch_MaxLimit tests the maximum limit cap
-func (s *AggregatorServerTestSuite) TestToolSearch_MaxLimit() {
+// TestSchemaFileGeneration tests that schema file is created and contains all tools
+func (s *AggregatorServerTestSuite) TestSchemaFileGeneration() {
+	// Verify schemaFilePath is set
+	require.NotEmpty(s.T(), s.server.schemaFilePath, "Schema file path should be set")
+
+	// Verify file exists
+	_, err := os.Stat(s.server.schemaFilePath)
+	require.NoError(s.T(), err, "Schema file should exist")
+
+	// Read and parse the file
+	data, err := os.ReadFile(s.server.schemaFilePath)
+	require.NoError(s.T(), err, "Should be able to read schema file")
+
+	var toolSchemas []tools.ToolMetadata
+	err = json.Unmarshal(data, &toolSchemas)
+	require.NoError(s.T(), err, "Schema file should contain valid JSON")
+
+	// Verify file contains tools (at least our test tools, excluding meta-tools)
+	require.GreaterOrEqual(s.T(), len(toolSchemas), 3, "Schema file should contain at least 3 test tools")
+
+	// Verify each tool has required fields
+	for _, tool := range toolSchemas {
+		require.NotEmpty(s.T(), tool.Name, "Each tool should have a name")
+		require.NotEmpty(s.T(), tool.Category, "Each tool should have a category")
+		require.NotEmpty(s.T(), tool.Description, "Each tool should have a description")
+		// Parameters field is optional (can be nil for tools without parameters)
+	}
+}
+
+// TestToolSearch_IncludesSchemaFile tests that search response includes schema file info
+func (s *AggregatorServerTestSuite) TestToolSearch_IncludesSchemaFile() {
 	input := ToolSearchInput{
-		DetailLevel: "names_only",
-		Limit:       300, // More than max of 200
+		DetailLevel: "summary",
 	}
 
 	result, _, err := s.server.handleToolSearch(s.ctx, nil, input)
 	require.NoError(s.T(), err)
 
 	response := s.parseToolSearchResponse(result)
-	require.Equal(s.T(), float64(200), response["limit"], "Should cap limit at 200")
+
+	// Verify schema_file field is present
+	require.Contains(s.T(), response, "schema_file", "Response should contain schema_file field")
+	schemaFile, ok := response["schema_file"].(string)
+	require.True(s.T(), ok, "schema_file should be a string")
+	require.NotEmpty(s.T(), schemaFile, "schema_file should not be empty")
+	require.Equal(s.T(), s.server.schemaFilePath, schemaFile, "schema_file should match server's schemaFilePath")
+
+	// Verify message field is present
+	require.Contains(s.T(), response, "message", "Response should contain message field")
+	message, ok := response["message"].(string)
+	require.True(s.T(), ok, "message should be a string")
+	require.Contains(s.T(), message, schemaFile, "Message should mention the schema file path")
+}
+
+// TestSchemaFileCleanup tests that schema file is removed on server close
+func (s *AggregatorServerTestSuite) TestSchemaFileCleanup() {
+	schemaFilePath := s.server.schemaFilePath
+
+	// Verify file exists before close
+	_, err := os.Stat(schemaFilePath)
+	require.NoError(s.T(), err, "Schema file should exist before close")
+
+	// Close the server
+	err = s.server.Close()
+	require.NoError(s.T(), err, "Close should not error")
+
+	// Verify file is removed after close
+	_, err = os.Stat(schemaFilePath)
+	require.True(s.T(), os.IsNotExist(err), "Schema file should be removed after close")
 }
 
 // TestToolExecute tests successful tool execution

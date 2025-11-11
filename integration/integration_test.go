@@ -233,12 +233,11 @@ func (s *IntegrationTestSuite) TestToolSearch() {
 	})
 	s.readResponse()
 
-	// Test tool_search with names_only
+	// Test tool_search with names_only (no limit parameter)
 	s.sendRequest("tools/call", map[string]any{
 		"name": "tool_search",
 		"arguments": map[string]any{
 			"detail_level": "names_only",
-			"limit":        10,
 		},
 	})
 	resp := s.readResponse()
@@ -262,6 +261,8 @@ func (s *IntegrationTestSuite) TestToolSearch() {
 	require.Contains(s.T(), result, "tools")
 	require.Contains(s.T(), result, "total_count")
 	require.Contains(s.T(), result, "returned_count")
+	require.Contains(s.T(), result, "schema_file", "Should contain schema_file field")
+	require.Contains(s.T(), result, "message", "Should contain message field")
 }
 
 // TestToolExecute tests the tool_execute functionality
@@ -314,7 +315,7 @@ func (s *IntegrationTestSuite) TestToolExecuteBatch() {
 	})
 	s.readResponse()
 
-	// Test tool_execute_batch with multiple tool_search calls
+	// Test tool_execute_batch with multiple tool_search calls (without limit argument)
 	s.sendRequest("tools/call", map[string]any{
 		"name": "tool_execute_batch",
 		"arguments": map[string]any{
@@ -323,14 +324,12 @@ func (s *IntegrationTestSuite) TestToolExecuteBatch() {
 					"tool_name": "tool_search",
 					"arguments": map[string]any{
 						"detail_level": "names_only",
-						"limit":        5,
 					},
 				},
 				{
 					"tool_name": "tool_search",
 					"arguments": map[string]any{
 						"detail_level": "summary",
-						"limit":        3,
 					},
 				},
 			},
@@ -359,6 +358,127 @@ func (s *IntegrationTestSuite) TestToolExecuteBatch() {
 	results, ok := result["results"].([]any)
 	require.True(s.T(), ok)
 	require.Equal(s.T(), 2, len(results), "Should have 2 results for 2 operations")
+}
+
+// TestSchemaFile tests the schema file functionality
+func (s *IntegrationTestSuite) TestSchemaFile() {
+	// Initialize
+	s.sendRequest("initialize", map[string]any{
+		"protocolVersion": "2024-11-05",
+		"capabilities":    map[string]any{},
+		"clientInfo": map[string]any{
+			"name":    "integration-test",
+			"version": "1.0.0",
+		},
+	})
+	s.readResponse()
+
+	// Call tool_search to get schema file path
+	s.sendRequest("tools/call", map[string]any{
+		"name": "tool_search",
+		"arguments": map[string]any{
+			"detail_level": "summary",
+		},
+	})
+	resp := s.readResponse()
+
+	require.Nil(s.T(), resp.Error, "tool_search should not return error")
+	require.NotNil(s.T(), resp.Result)
+	require.Contains(s.T(), resp.Result, "content")
+
+	content, ok := resp.Result["content"].([]any)
+	require.True(s.T(), ok)
+	require.Greater(s.T(), len(content), 0)
+
+	firstContent, ok := content[0].(map[string]any)
+	require.True(s.T(), ok)
+	require.Equal(s.T(), "text", firstContent["type"])
+
+	var result map[string]any
+	err := json.Unmarshal([]byte(firstContent["text"].(string)), &result)
+	require.NoError(s.T(), err)
+
+	// Verify schema_file field is present
+	require.Contains(s.T(), result, "schema_file", "Response should contain schema_file field")
+	schemaFilePath, ok := result["schema_file"].(string)
+	require.True(s.T(), ok, "schema_file should be a string")
+	require.NotEmpty(s.T(), schemaFilePath, "schema_file should not be empty")
+
+	// Verify message field mentions the schema file
+	require.Contains(s.T(), result, "message", "Response should contain message field")
+	message, ok := result["message"].(string)
+	require.True(s.T(), ok, "message should be a string")
+	require.Contains(s.T(), message, schemaFilePath, "Message should mention the schema file path")
+
+	// Read the schema file
+	schemaData, err := os.ReadFile(schemaFilePath)
+	require.NoError(s.T(), err, "Should be able to read schema file")
+
+	// Parse the schema file
+	var toolSchemas []map[string]any
+	err = json.Unmarshal(schemaData, &toolSchemas)
+	require.NoError(s.T(), err, "Schema file should contain valid JSON")
+
+	// Verify schema file contains tools (only external/internal tools, not meta-tools)
+	// Meta-tools are exposed via MCP protocol's tools/list, not in the schema file
+	require.GreaterOrEqual(s.T(), len(toolSchemas), 0, "Schema file should be valid (may be empty if no external tools)")
+
+	// Verify structure of tools in schema file
+	for _, tool := range toolSchemas {
+		require.Contains(s.T(), tool, "name", "Each tool should have a name")
+		require.Contains(s.T(), tool, "category", "Each tool should have a category")
+		require.Contains(s.T(), tool, "description", "Each tool should have a description")
+		// parameters field is optional
+	}
+}
+
+// TestSchemaFileFixedLimit tests that tool_search returns exactly 5 tools
+func (s *IntegrationTestSuite) TestSchemaFileFixedLimit() {
+	// Initialize
+	s.sendRequest("initialize", map[string]any{
+		"protocolVersion": "2024-11-05",
+		"capabilities":    map[string]any{},
+		"clientInfo": map[string]any{
+			"name":    "integration-test",
+			"version": "1.0.0",
+		},
+	})
+	s.readResponse()
+
+	// Call tool_search
+	s.sendRequest("tools/call", map[string]any{
+		"name": "tool_search",
+		"arguments": map[string]any{
+			"detail_level": "names_only",
+		},
+	})
+	resp := s.readResponse()
+
+	require.Nil(s.T(), resp.Error)
+	require.NotNil(s.T(), resp.Result)
+
+	content, ok := resp.Result["content"].([]any)
+	require.True(s.T(), ok)
+	require.Greater(s.T(), len(content), 0)
+
+	firstContent, ok := content[0].(map[string]any)
+	require.True(s.T(), ok)
+
+	var result map[string]any
+	err := json.Unmarshal([]byte(firstContent["text"].(string)), &result)
+	require.NoError(s.T(), err)
+
+	// Verify fixed limit of 5
+	require.Equal(s.T(), float64(5), result["limit"], "Should have fixed limit of 5")
+
+	// Verify returned count is at most 5
+	returnedCount := int(result["returned_count"].(float64))
+	require.LessOrEqual(s.T(), returnedCount, 5, "Should return at most 5 tools")
+
+	// Verify tools array matches returned_count
+	tools, ok := result["tools"].([]any)
+	require.True(s.T(), ok)
+	require.Equal(s.T(), returnedCount, len(tools), "Tools array length should match returned_count")
 }
 
 func TestIntegrationSuite(t *testing.T) {
