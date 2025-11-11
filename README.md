@@ -138,13 +138,13 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 ### 1. `tool_search`
 Discover available tools with optional filtering and pagination.
 
-**Parameters:**
+**Arguments:**
 - `query` (optional) - Search term to filter by name or description
 - `category` (optional) - Filter by category (e.g., "browser", "filesystem")
 - `detail_level` (optional) - Level of detail to return:
   - `"names_only"` - Just tool names and categories (minimal tokens)
   - `"summary"` - Name, category, and description (default)
-  - `"detailed"` - Includes parameter schema
+  - `"detailed"` - Includes argument schema
   - `"full_schema"` - Complete schema with all details
 - `offset` (optional) - Number of results to skip (default: 0)
 - `limit` (optional) - Maximum results to return (default: 50, max: 200)
@@ -155,7 +155,7 @@ Discover available tools with optional filtering and pagination.
 ```json
 {
   "tool_name": "tool_search",
-  "parameters": {
+  "arguments": {
     "detail_level": "names_only",
     "limit": 10,
     "offset": 0
@@ -167,7 +167,7 @@ Discover available tools with optional filtering and pagination.
 ```json
 {
   "tool_name": "tool_search",
-  "parameters": {
+  "arguments": {
     "query": "navigate",
     "category": "browser",
     "detail_level": "full_schema"
@@ -188,7 +188,7 @@ Discover available tools with optional filtering and pagination.
       "name": "playwright_browser_navigate",
       "category": "browser",
       "description": "Navigate to a URL",
-      "parameters": {...}
+      "schema": {...}
     }
   ]
 }
@@ -197,17 +197,17 @@ Discover available tools with optional filtering and pagination.
 ### 2. `tool_execute`
 Execute a single tool by name.
 
-**Parameters:**
+**Arguments:**
 - `tool_name` (required) - Name of the tool (e.g., `playwright_browser_navigate`)
-- `parameters` (required) - Tool-specific parameters
+- `arguments` (required) - Tool-specific arguments
 
 **Example:**
 ```json
 {
   "tool_name": "tool_execute",
-  "parameters": {
+  "arguments": {
     "tool_name": "playwright_browser_navigate",
-    "parameters": {
+    "arguments": {
       "url": "https://example.com"
     }
   }
@@ -217,23 +217,23 @@ Execute a single tool by name.
 ### 3. `tool_execute_batch`
 Execute multiple tools in sequence.
 
-**Parameters:**
-- `tools` (required) - Array of `{tool_name, parameters}` objects
+**Arguments:**
+- `tools` (required) - Array of `{tool_name, arguments}` objects
 - `continue_on_error` (optional) - Continue if a tool fails (default: false)
 
 **Example:**
 ```json
 {
   "tool_name": "tool_execute_batch",
-  "parameters": {
+  "arguments": {
     "tools": [
       {
         "tool_name": "playwright_browser_navigate",
-        "parameters": {"url": "https://example.com"}
+        "arguments": {"url": "https://example.com"}
       },
       {
         "tool_name": "playwright_browser_take_screenshot",
-        "parameters": {"filename": "screenshot.png"}
+        "arguments": {"filename": "screenshot.png"}
       }
     ],
     "continue_on_error": true
@@ -283,7 +283,7 @@ The recommended workflow for Claude:
 
 1. **Search for tools**: Use `tool_search` with filters to find relevant tools
 2. **Get detailed schemas**: Use `detail_level: "full_schema"` for tools you plan to use
-3. **Execute tools**: Use `tool_execute` or `tool_execute_batch` with validated parameters
+3. **Execute tools**: Use `tool_execute` or `tool_execute_batch` with validated arguments
 
 **Example conversation:**
 ```
@@ -294,8 +294,8 @@ Claude: Let me search for screenshot tools...
 
 Claude: Found playwright_browser_take_screenshot. Let me navigate and capture...
 → tool_execute_batch(tools=[
-    {tool_name: "playwright_browser_navigate", parameters: {url: "https://example.com"}},
-    {tool_name: "playwright_browser_take_screenshot", parameters: {filename: "example.png"}}
+    {tool_name: "playwright_browser_navigate", arguments: {url: "https://example.com"}},
+    {tool_name: "playwright_browser_take_screenshot", arguments: {filename: "example.png"}}
   ])
 ```
 
@@ -328,8 +328,8 @@ time=2025-11-11T10:00:04.000+00:00 level=INFO msg="Tool execution successful" na
 
 ### Tool execution fails
 
-- Use `tool_search` with `detail_level: "full_schema"` to see required parameters
-- Check parameter types match the schema
+- Use `tool_search` with `detail_level: "full_schema"` to see required arguments
+- Check argument types match the schema
 - Review logs for detailed error messages
 
 ## Development
@@ -443,7 +443,7 @@ if err := aggregator.registerCustomTools(server); err != nil {
 #### Key Points
 
 - **Type Safety**: The official SDK automatically infers schemas from your Go structs
-- **Struct Tags**: Use `jsonschema:"description"` to document parameters
+- **Struct Tags**: Use `jsonschema:"description"` to document arguments
 - **Handler Signature**: `func(ctx, *CallToolRequest, InputType) (*CallToolResult, any, error)`
 - **Response Format**: Always return JSON in TextContent for consistency with meta-tools
 - **No Schema Required**: If you don't provide `inputSchema` in the Tool struct, it's inferred from your input type
