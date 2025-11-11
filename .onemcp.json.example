@@ -14,6 +14,90 @@
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
       "category": "filesystem",
       "enabled": true
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "category": "search",
+      "enabled": true,
+      "env": {
+        "BRAVE_API_KEY": "your-api-key"
+      }
+    },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "category": "web",
+      "enabled": true
+    },
+    "git": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git"],
+      "category": "vcs",
+      "enabled": true
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "category": "vcs",
+      "enabled": true,
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token"
+      }
+    },
+    "gitlab": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-gitlab"],
+      "category": "vcs",
+      "enabled": true,
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "your-token"
+      }
+    },
+    "google-maps": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-google-maps"],
+      "category": "maps",
+      "enabled": true,
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "your-api-key"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"],
+      "category": "database",
+      "enabled": true
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "category": "browser",
+      "enabled": true
+    },
+    "sqlite": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sqlite", "/path/to/database.db"],
+      "category": "database",
+      "enabled": true
+    },
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "category": "communication",
+      "enabled": true,
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-your-token"
+      }
+    },
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sentry"],
+      "category": "monitoring",
+      "enabled": true,
+      "env": {
+        "SENTRY_AUTH_TOKEN": "your-token"
+      }
     }
   }
 }
