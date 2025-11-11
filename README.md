@@ -378,18 +378,23 @@ time=2025-11-11T10:00:04.000+00:00 level=INFO msg="Tool execution successful" na
 
 ### Adding External Servers
 
-Simply add to `.onemcp.json` - no code changes required:
+Simply add to the `mcpServers` section in `.onemcp.json` - no code changes required:
 
 ```json
 {
-  "your-server": {
-    "command": "/path/to/your-mcp-server",
-    "args": ["--config", "config.json"],
-    "env": {
-      "API_KEY": "your-key"
-    },
-    "category": "custom",
-    "enabled": true
+  "settings": {
+    "searchResultLimit": 5
+  },
+  "mcpServers": {
+    "your-server": {
+      "command": "/path/to/your-mcp-server",
+      "args": ["--config", "config.json"],
+      "env": {
+        "API_KEY": "your-key"
+      },
+      "category": "custom",
+      "enabled": true
+    }
   }
 }
 ```
