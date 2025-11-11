@@ -32,9 +32,9 @@ func (s *AggregatorServerTestSuite) SetupTest() {
 	// Register test tools
 	s.registerTestTools(server)
 
-	// Regenerate schema file after registering test tools
-	err = server.generateSchemaFile()
-	require.NoError(s.T(), err, "Failed to regenerate schema file")
+	// Initialize vector store after registering test tools
+	err = server.initializeVectorStore()
+	require.NoError(s.T(), err, "Failed to initialize vector store")
 
 	s.server = server
 	s.ctx = context.Background()
@@ -175,12 +175,13 @@ func (s *AggregatorServerTestSuite) TestToolSearch_Detailed() {
 
 	response := s.parseToolSearchResponse(result)
 
-	// Should find exactly 1 tool
+	// With semantic search, may find multiple similar tools
 	totalCount := int(response["total_count"].(float64))
-	require.Equal(s.T(), 1, totalCount, "Should find 1 tool matching 'test_tool_1'")
+	require.GreaterOrEqual(s.T(), totalCount, 1, "Should find at least 1 tool matching 'test_tool_1'")
 
 	// Verify detailed format (has parameters)
 	toolsArray := response["tools"].([]any)
+	require.Greater(s.T(), len(toolsArray), 0, "Should return at least one tool")
 	firstTool := toolsArray[0].(map[string]any)
 	require.Contains(s.T(), firstTool, "parameters", "detailed should include parameters")
 }
@@ -227,37 +228,17 @@ func (s *AggregatorServerTestSuite) TestToolSearch_FixedLimit() {
 	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 5, "Should return at most 5 tools")
 }
 
-// TestSchemaFileGeneration tests that schema file is created and contains all tools
-func (s *AggregatorServerTestSuite) TestSchemaFileGeneration() {
-	// Verify schemaFilePath is set
-	require.NotEmpty(s.T(), s.server.schemaFilePath, "Schema file path should be set")
+// TestVectorStoreInitialization tests that vector store is initialized with tools
+func (s *AggregatorServerTestSuite) TestVectorStoreInitialization() {
+	// Verify vector store is initialized
+	require.NotNil(s.T(), s.server.vectorStore, "Vector store should be initialized")
 
-	// Verify file exists
-	_, err := os.Stat(s.server.schemaFilePath)
-	require.NoError(s.T(), err, "Schema file should exist")
-
-	// Read and parse the file
-	data, err := os.ReadFile(s.server.schemaFilePath)
-	require.NoError(s.T(), err, "Should be able to read schema file")
-
-	var toolSchemas []tools.ToolMetadata
-	err = json.Unmarshal(data, &toolSchemas)
-	require.NoError(s.T(), err, "Schema file should contain valid JSON")
-
-	// Verify file contains tools (at least our test tools, excluding meta-tools)
-	require.GreaterOrEqual(s.T(), len(toolSchemas), 3, "Schema file should contain at least 3 test tools")
-
-	// Verify each tool has required fields
-	for _, tool := range toolSchemas {
-		require.NotEmpty(s.T(), tool.Name, "Each tool should have a name")
-		require.NotEmpty(s.T(), tool.Category, "Each tool should have a category")
-		require.NotEmpty(s.T(), tool.Description, "Each tool should have a description")
-		// Parameters field is optional (can be nil for tools without parameters)
-	}
+	// Verify vector store has indexed tools
+	require.Greater(s.T(), s.server.vectorStore.GetToolCount(), 0, "Vector store should have indexed tools")
 }
 
 // TestToolSearch_IncludesSchemaFile tests that search response includes schema file info
-func (s *AggregatorServerTestSuite) TestToolSearch_IncludesSchemaFile() {
+func (s *AggregatorServerTestSuite) TestToolSearch_ReturnsResults() {
 	input := ToolSearchInput{
 		DetailLevel: "summary",
 	}
@@ -267,35 +248,17 @@ func (s *AggregatorServerTestSuite) TestToolSearch_IncludesSchemaFile() {
 
 	response := s.parseToolSearchResponse(result)
 
-	// Verify schema_file field is present
-	require.Contains(s.T(), response, "schema_file", "Response should contain schema_file field")
-	schemaFile, ok := response["schema_file"].(string)
-	require.True(s.T(), ok, "schema_file should be a string")
-	require.NotEmpty(s.T(), schemaFile, "schema_file should not be empty")
-	require.Equal(s.T(), s.server.schemaFilePath, schemaFile, "schema_file should match server's schemaFilePath")
-
-	// Verify message field is present
-	require.Contains(s.T(), response, "message", "Response should contain message field")
-	message, ok := response["message"].(string)
-	require.True(s.T(), ok, "message should be a string")
-	require.Contains(s.T(), message, schemaFile, "Message should mention the schema file path")
+	// Verify response structure
+	require.Contains(s.T(), response, "tools", "Response should contain tools")
+	require.Contains(s.T(), response, "total_count", "Response should contain total_count")
+	require.Contains(s.T(), response, "returned_count", "Response should contain returned_count")
 }
 
-// TestSchemaFileCleanup tests that schema file is removed on server close
-func (s *AggregatorServerTestSuite) TestSchemaFileCleanup() {
-	schemaFilePath := s.server.schemaFilePath
-
-	// Verify file exists before close
-	_, err := os.Stat(schemaFilePath)
-	require.NoError(s.T(), err, "Schema file should exist before close")
-
+// TestServerClose tests that server closes cleanly
+func (s *AggregatorServerTestSuite) TestServerClose() {
 	// Close the server
-	err = s.server.Close()
+	err := s.server.Close()
 	require.NoError(s.T(), err, "Close should not error")
-
-	// Verify file is removed after close
-	_, err = os.Stat(schemaFilePath)
-	require.True(s.T(), os.IsNotExist(err), "Schema file should be removed after close")
 }
 
 // TestToolExecute tests successful tool execution

@@ -80,29 +80,6 @@ func (r *Registry) Get(name string) (*Tool, error) {
 	return tool, nil
 }
 
-// Search finds tools matching the given criteria using fuzzy matching.
-func (r *Registry) Search(query, category string) []*Tool {
-	var results []*Tool
-
-	for _, tool := range r.tools {
-		// Filter by category if specified
-		if category != "" && tool.Category != category {
-			continue
-		}
-
-		// Filter by query if specified (with fuzzy matching)
-		if query != "" {
-			if !fuzzyMatch(query, tool.Name) && !fuzzyMatch(query, tool.Description) {
-				continue
-			}
-		}
-
-		results = append(results, tool)
-	}
-
-	return results
-}
-
 // Execute runs a tool with the given parameters.
 func (r *Registry) Execute(ctx context.Context, toolName string, parameters map[string]any) (*ExecutionResult, error) {
 	start := time.Now()
