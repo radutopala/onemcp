@@ -1,0 +1,23 @@
+# Binaries
+one-mcp-server
+one-mcp-server-*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Credentials
+.mcp-servers.json

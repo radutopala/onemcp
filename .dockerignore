@@ -1,0 +1,14 @@
+# Go source files (we only need the binary)
+cmd/
+internal/
+go.mod
+go.sum
+
+# Development files
+*.md
+.git
+.gitignore
+
+# Docker files
+docker-compose.yml
+Dockerfile
