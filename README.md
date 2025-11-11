@@ -44,17 +44,17 @@ OneMCP Aggregator
 
 OneMCP includes several optimizations for token efficiency and speed:
 
-1. **Fixed Result Limit**: Returns exactly 5 tools per search to minimize token usage
-2. **Hybrid Schema Approach**: 5 tools inline + complete schema file for comprehensive exploration
+1. **Configurable Result Limit**: Returns 2 tools per search by default (configurable via `.onemcp.json`)
+2. **Hybrid Schema Approach**: 2 tools inline + complete schema file for comprehensive exploration
 3. **Progressive Discovery**: Four detail levels (names_only → summary → detailed → full_schema)
 4. **Schema Caching**: External tool schemas cached at startup, no repeated fetching
 5. **Fuzzy Search**: Levenshtein distance algorithm handles typos without multiple queries
 6. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
 
-**Token Usage Examples:**
-- `names_only` search (5 tools): ~50 tokens total
-- `summary` search (5 tools): ~250-500 tokens total
-- `full_schema` search (5 tools): ~2500-5000 tokens total
+**Token Usage Examples (default 2 tools):**
+- `names_only` search: ~20 tokens total
+- `summary` search: ~100-200 tokens total
+- `full_schema` search: ~1000-2000 tokens total
 - Schema file path: ~50 tokens (read file separately for complete tool list)
 
 ## Technology
@@ -83,23 +83,28 @@ GOOS=darwin GOARCH=amd64 go build -o one-mcp ./cmd/one-mcp
 GOOS=linux GOARCH=amd64 go build -o one-mcp-linux ./cmd/one-mcp
 ```
 
-### 2. Configure external servers
+### 2. Configure OneMCP
 
-Create `.mcp-servers.json`:
+Create `.onemcp.json`:
 
 ```json
 {
-  "playwright": {
-    "command": "npx",
-    "args": ["-y", "@playwright/mcp"],
-    "category": "browser",
-    "enabled": true
+  "settings": {
+    "searchResultLimit": 2
   },
-  "filesystem": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-    "category": "filesystem",
-    "enabled": true
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp"],
+      "category": "browser",
+      "enabled": true
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "category": "filesystem",
+      "enabled": true
+    }
   }
 }
 ```
@@ -135,7 +140,7 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 ## Meta-Tools API
 
 ### 1. `tool_search`
-Discover available tools with optional filtering. Uses **fuzzy matching** to handle typos and small variations. Returns exactly **5 tools per query** to minimize token usage.
+Discover available tools with optional filtering. Uses **fuzzy matching** to handle typos and small variations. Returns **2 tools per query by default** (configurable via `.onemcp.json`).
 
 **Arguments:**
 - `query` (optional) - Search term to filter by name or description. Must be a single word for fuzzy matching (e.g., "browser", "navigate", "screenshot")
@@ -151,7 +156,7 @@ Discover available tools with optional filtering. Uses **fuzzy matching** to han
 
 **Schema Caching:** External tool schemas are cached at startup for fast repeated searches.
 
-**Hybrid Approach:** Search returns exactly **5 tools inline** plus a `schema_file` path (`/tmp/onemcp-tools-schema.json`) containing **ALL executable tools with full schemas** (external and internal tools only, excluding meta-tools which are already exposed via MCP's `tools/list`). For comprehensive tool exploration, search the schema file using filesystem tools instead of paginating through search results. This reduces token usage while maintaining access to complete tool information.
+**Hybrid Approach:** Search returns **2 tools inline by default** (configurable) plus a `schema_file` path (`/tmp/onemcp-tools-schema.json`) containing **ALL executable tools with full schemas** (external and internal tools only, excluding meta-tools which are already exposed via MCP's `tools/list`). For comprehensive tool exploration, search the schema file using filesystem tools instead of paginating through search results. This reduces token usage while maintaining access to complete tool information.
 
 **Example - Basic search:**
 ```json
@@ -181,12 +186,12 @@ Discover available tools with optional filtering. Uses **fuzzy matching** to han
 ```json
 {
   "total_count": 21,
-  "returned_count": 5,
+  "returned_count": 2,
   "offset": 0,
-  "limit": 5,
+  "limit": 2,
   "has_more": true,
   "schema_file": "/tmp/onemcp-tools-schema.json",
-  "message": "Showing 5 of 21 tools. For complete tool list with full schemas, search with filesystem tools in: /tmp/onemcp-tools-schema.json",
+  "message": "Showing 2 of 21 tools. For complete tool list with full schemas, search with filesystem tools in: /tmp/onemcp-tools-schema.json",
   "tools": [
     {
       "name": "playwright_browser_navigate",
@@ -194,7 +199,12 @@ Discover available tools with optional filtering. Uses **fuzzy matching** to han
       "description": "Navigate to a URL",
       "schema": {...}
     },
-    ...
+    {
+      "name": "playwright_browser_click",
+      "category": "browser",
+      "description": "Click an element",
+      "schema": {...}
+    }
   ]
 }
 ```
@@ -221,21 +231,40 @@ Execute a single tool by name.
 
 ## Configuration
 
-### External Server Configuration
+OneMCP uses `.onemcp.json` for configuration. See `.onemcp.json.example` for a complete example.
 
-The `.mcp-servers.json` file defines external MCP servers to aggregate:
+### Settings
+
+Configure OneMCP behavior:
 
 ```json
 {
-  "server-name": {
-    "command": "path/to/server",           // Required: Command to run
-    "args": ["--arg1", "value1"],          // Optional: Command arguments
-    "env": {                                // Optional: Environment variables
-      "API_KEY": "secret",
-      "LOG_LEVEL": "info"
-    },
-    "category": "browser",                 // Optional: Category for grouping tools
-    "enabled": true                        // Required: Whether to load this server
+  "settings": {
+    "searchResultLimit": 2
+  }
+}
+```
+
+**Available Settings:**
+- `searchResultLimit` (number) - Number of tools to return per search query. Default: 2. Lower values reduce token usage but require more searches for discovery.
+
+### External Server Configuration
+
+Define external MCP servers in the `mcpServers` section:
+
+```json
+{
+  "mcpServers": {
+    "server-name": {
+      "command": "path/to/server",     // Required: Command to run
+      "args": ["--arg1", "value1"],    // Optional: Command arguments
+      "env": {                          // Optional: Environment variables
+        "API_KEY": "secret",
+        "LOG_LEVEL": "info"
+      },
+      "category": "browser",           // Optional: Category for grouping tools
+      "enabled": true                  // Required: Whether to load this server
+    }
   }
 }
 ```

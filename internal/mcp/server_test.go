@@ -198,22 +198,22 @@ func (s *AggregatorServerTestSuite) TestToolSearch_Pagination() {
 
 	response := s.parseToolSearchResponse(result)
 
-	// Verify pagination fields with fixed limit of 5
+	// Verify pagination fields with fixed limit of 2
 	require.Equal(s.T(), float64(0), response["offset"])
-	require.Equal(s.T(), float64(5), response["limit"], "Should use fixed limit of 5")
-	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 5, "Should return at most 5 tools")
+	require.Equal(s.T(), float64(2), response["limit"], "Should use fixed limit of 2")
+	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 2, "Should return at most 2 tools")
 
 	// Second page
-	input.Offset = 5
+	input.Offset = 2
 	result, _, err = s.server.handleToolSearch(s.ctx, nil, input)
 	require.NoError(s.T(), err)
 
 	response = s.parseToolSearchResponse(result)
-	require.Equal(s.T(), float64(5), response["offset"])
-	require.Equal(s.T(), float64(5), response["limit"], "Should use fixed limit of 5")
+	require.Equal(s.T(), float64(2), response["offset"])
+	require.Equal(s.T(), float64(2), response["limit"], "Should use fixed limit of 2")
 }
 
-// TestToolSearch_FixedLimit tests the fixed limit of 5
+// TestToolSearch_FixedLimit tests the fixed limit of 2
 func (s *AggregatorServerTestSuite) TestToolSearch_FixedLimit() {
 	input := ToolSearchInput{
 		DetailLevel: "names_only",
@@ -223,8 +223,8 @@ func (s *AggregatorServerTestSuite) TestToolSearch_FixedLimit() {
 	require.NoError(s.T(), err)
 
 	response := s.parseToolSearchResponse(result)
-	require.Equal(s.T(), float64(5), response["limit"], "Should use fixed limit of 5")
-	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 5, "Should return at most 5 tools")
+	require.Equal(s.T(), float64(2), response["limit"], "Should use fixed limit of 2")
+	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 2, "Should return at most 2 tools")
 }
 
 // TestSchemaFileGeneration tests that schema file is created and contains all tools

@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "searchResultLimit": 2
+  },
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp"],
+      "category": "browser",
+      "enabled": true
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "category": "filesystem",
+      "enabled": true
+    }
+  }
+}

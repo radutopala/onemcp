@@ -13,18 +13,25 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ExternalServerConfig represents configuration for external MCP servers
-type ExternalServerConfig struct {
-	ExternalServers map[string]mcpclient.MCPServerConfig `json:"external_servers"`
+// Config represents the complete OneMCP configuration
+type Config struct {
+	Settings        Settings                             `json:"settings"`
+	ExternalServers map[string]mcpclient.MCPServerConfig `json:"mcpServers"`
+}
+
+// Settings represents OneMCP settings
+type Settings struct {
+	SearchResultLimit int `json:"searchResultLimit"` // Number of tools to return per search (default: 2)
 }
 
 // AggregatorServer implements a generic MCP aggregator
 type AggregatorServer struct {
-	server          *mcp.Server
-	logger          *slog.Logger
-	registry        *tools.Registry
-	externalClients map[string]*mcpclient.MCPClient
-	schemaFilePath  string // Path to generated schema file
+	server            *mcp.Server
+	logger            *slog.Logger
+	registry          *tools.Registry
+	externalClients   map[string]*mcpclient.MCPClient
+	schemaFilePath    string // Path to generated schema file
+	searchResultLimit int    // Number of tools to return per search
 }
 
 // NewAggregatorServer creates a new generic aggregator server
@@ -32,14 +39,27 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	ctx := context.Background()
 
 	aggregator := &AggregatorServer{
-		logger:          logger,
-		registry:        tools.NewRegistry(logger),
-		externalClients: make(map[string]*mcpclient.MCPClient),
+		logger:            logger,
+		registry:          tools.NewRegistry(logger),
+		externalClients:   make(map[string]*mcpclient.MCPClient),
+		searchResultLimit: 2, // Default limit
 	}
 
-	// Load and initialize external MCP servers
-	if err := aggregator.initializeExternalServers(ctx); err != nil {
-		logger.Warn("Failed to initialize external servers, continuing without them", "error", err)
+	// Load configuration and initialize external MCP servers
+	config, err := aggregator.loadConfig()
+	if err != nil {
+		logger.Warn("Failed to load config, using defaults", "error", err)
+	} else {
+		// Apply settings from config
+		if config.Settings.SearchResultLimit > 0 {
+			aggregator.searchResultLimit = config.Settings.SearchResultLimit
+			logger.Info("Using custom search result limit", "limit", config.Settings.SearchResultLimit)
+		}
+
+		// Initialize external servers from config
+		if err := aggregator.initializeExternalServersFromConfig(ctx, config.ExternalServers); err != nil {
+			logger.Warn("Failed to initialize external servers, continuing without them", "error", err)
+		}
 	}
 
 	// Create MCP server
@@ -66,34 +86,43 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	return aggregator, nil
 }
 
-// initializeExternalServers loads and connects to external MCP servers.
-func (s *AggregatorServer) initializeExternalServers(ctx context.Context) error {
-	// Try to load external server configuration
-	configPath := os.Getenv("MCP_SERVERS_CONFIG")
+// loadConfig loads the .onemcp.json configuration file
+func (s *AggregatorServer) loadConfig() (*Config, error) {
+	configPath := os.Getenv("ONEMCP_CONFIG")
 	if configPath == "" {
-		configPath = ".mcp-servers.json"
+		configPath = ".onemcp.json"
 	}
 
-	s.logger.Info("Looking for external servers config", "path", configPath)
+	s.logger.Info("Looking for config", "path", configPath)
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			s.logger.Info("No external servers config found, skipping", "path", configPath)
-			return nil
+			s.logger.Info("No config found, using defaults", "path", configPath)
+			return &Config{}, nil
 		}
-		return fmt.Errorf("failed to read config: %w", err)
+		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
-	s.logger.Info("Found external servers config", "path", configPath, "size_bytes", len(data))
+	s.logger.Info("Found config", "path", configPath, "size_bytes", len(data))
 
-	var config ExternalServerConfig
+	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	return &config, nil
+}
+
+// initializeExternalServersFromConfig connects to external MCP servers from config
+func (s *AggregatorServer) initializeExternalServersFromConfig(ctx context.Context, servers map[string]mcpclient.MCPServerConfig) error {
+	if len(servers) == 0 {
+		s.logger.Info("No external servers configured")
+		return nil
 	}
 
 	// Initialize each external server
-	for name, serverConfig := range config.ExternalServers {
+	for name, serverConfig := range servers {
 		if !serverConfig.Enabled {
 			s.logger.Info("Skipping disabled external server", "name", name)
 			continue
@@ -222,7 +251,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 	// Register tool_search
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tool_search",
-		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns exactly 5 tools per query. Use 'summary' or 'detailed' level to see descriptions and schemas. For complete tool list, use the schema_file path returned in results.",
+		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns exactly 2 tools per query. Use 'summary' or 'detailed' level to see descriptions and schemas. For complete tool list, use the schema_file path returned in results.",
 	}, s.handleToolSearch)
 
 	// Register tool_execute
@@ -250,8 +279,8 @@ func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallTo
 		detailLevel = "summary"
 	}
 
-	// Fixed limit of 5 tools
-	limit := 5
+	// Use configured limit
+	limit := s.searchResultLimit
 
 	offset := input.Offset
 	if offset < 0 {
