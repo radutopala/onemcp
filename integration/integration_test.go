@@ -409,12 +409,12 @@ func (s *IntegrationTestSuite) TestSchemaFileFixedLimit() {
 	err := json.Unmarshal([]byte(firstContent["text"].(string)), &result)
 	require.NoError(s.T(), err)
 
-	// Verify fixed limit of 2
-	require.Equal(s.T(), float64(2), result["limit"], "Should have fixed limit of 2")
+	// Verify fixed limit of 5
+	require.Equal(s.T(), float64(5), result["limit"], "Should have fixed limit of 5")
 
-	// Verify returned count is at most 2
+	// Verify returned count is at most 5
 	returnedCount := int(result["returned_count"].(float64))
-	require.LessOrEqual(s.T(), returnedCount, 2, "Should return at most 2 tools")
+	require.LessOrEqual(s.T(), returnedCount, 5, "Should return at most 5 tools")
 
 	// Verify tools array matches returned_count
 	tools, ok := result["tools"].([]any)

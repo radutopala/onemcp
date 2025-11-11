@@ -21,7 +21,7 @@ type Config struct {
 
 // Settings represents OneMCP settings
 type Settings struct {
-	SearchResultLimit int `json:"searchResultLimit"` // Number of tools to return per search (default: 2)
+	SearchResultLimit int `json:"searchResultLimit"` // Number of tools to return per search (default: 5)
 }
 
 // AggregatorServer implements a generic MCP aggregator
@@ -42,7 +42,7 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 		logger:            logger,
 		registry:          tools.NewRegistry(logger),
 		externalClients:   make(map[string]*mcpclient.MCPClient),
-		searchResultLimit: 2, // Default limit
+		searchResultLimit: 5, // Default limit
 	}
 
 	// Load configuration and initialize external MCP servers
@@ -251,7 +251,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 	// Register tool_search
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tool_search",
-		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns exactly 2 tools per query. Use 'summary' or 'detailed' level to see descriptions and schemas. For complete tool list, use the schema_file path returned in results.",
+		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns exactly 5 tools per query. Use 'summary' or 'detailed' level to see descriptions and schemas. For complete tool list, use the schema_file path returned in results.",
 	}, s.handleToolSearch)
 
 	// Register tool_execute

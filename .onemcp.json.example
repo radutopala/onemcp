@@ -1,6 +1,6 @@
 {
   "settings": {
-    "searchResultLimit": 2
+    "searchResultLimit": 5
   },
   "mcpServers": {
     "playwright": {

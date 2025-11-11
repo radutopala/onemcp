@@ -44,17 +44,17 @@ OneMCP Aggregator
 
 OneMCP includes several optimizations for token efficiency and speed:
 
-1. **Configurable Result Limit**: Returns 2 tools per search by default (configurable via `.onemcp.json`)
-2. **Hybrid Schema Approach**: 2 tools inline + complete schema file for comprehensive exploration
+1. **Configurable Result Limit**: Returns 5 tools per search by default (configurable via `.onemcp.json`)
+2. **Hybrid Schema Approach**: Limited tools inline + complete schema file for comprehensive exploration
 3. **Progressive Discovery**: Four detail levels (names_only → summary → detailed → full_schema)
 4. **Schema Caching**: External tool schemas cached at startup, no repeated fetching
 5. **Fuzzy Search**: Levenshtein distance algorithm handles typos without multiple queries
 6. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
 
-**Token Usage Examples (default 2 tools):**
-- `names_only` search: ~20 tokens total
-- `summary` search: ~100-200 tokens total
-- `full_schema` search: ~1000-2000 tokens total
+**Token Usage Examples (default 5 tools):**
+- `names_only` search: ~50 tokens total
+- `summary` search: ~200-400 tokens total
+- `full_schema` search: ~2000-5000 tokens total
 - Schema file path: ~50 tokens (read file separately for complete tool list)
 
 ## Technology
@@ -90,7 +90,7 @@ Create `.onemcp.json`:
 ```json
 {
   "settings": {
-    "searchResultLimit": 2
+    "searchResultLimit": 5
   },
   "mcpServers": {
     "playwright": {
@@ -140,7 +140,7 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 ## Meta-Tools API
 
 ### 1. `tool_search`
-Discover available tools with optional filtering. Uses **fuzzy matching** to handle typos and small variations. Returns **2 tools per query by default** (configurable via `.onemcp.json`).
+Discover available tools with optional filtering. Uses **fuzzy matching** to handle typos and small variations. Returns **5 tools per query by default** (configurable via `.onemcp.json`).
 
 **Arguments:**
 - `query` (optional) - Search term to filter by name or description. Must be a single word for fuzzy matching (e.g., "browser", "navigate", "screenshot")
@@ -156,7 +156,7 @@ Discover available tools with optional filtering. Uses **fuzzy matching** to han
 
 **Schema Caching:** External tool schemas are cached at startup for fast repeated searches.
 
-**Hybrid Approach:** Search returns **2 tools inline by default** (configurable) plus a `schema_file` path (`/tmp/onemcp-tools-schema.json`) containing **ALL executable tools with full schemas** (external and internal tools only, excluding meta-tools which are already exposed via MCP's `tools/list`). For comprehensive tool exploration, search the schema file using filesystem tools instead of paginating through search results. This reduces token usage while maintaining access to complete tool information.
+**Hybrid Approach:** Search returns **5 tools inline by default** (configurable) plus a `schema_file` path (`/tmp/onemcp-tools-schema.json`) containing **ALL executable tools with full schemas** (external and internal tools only, excluding meta-tools which are already exposed via MCP's `tools/list`). For comprehensive tool exploration, search the schema file using filesystem tools instead of paginating through search results. This reduces token usage while maintaining access to complete tool information.
 
 **Example - Basic search:**
 ```json
@@ -186,12 +186,12 @@ Discover available tools with optional filtering. Uses **fuzzy matching** to han
 ```json
 {
   "total_count": 21,
-  "returned_count": 2,
+  "returned_count": 5,
   "offset": 0,
-  "limit": 2,
+  "limit": 5,
   "has_more": true,
   "schema_file": "/tmp/onemcp-tools-schema.json",
-  "message": "Showing 2 of 21 tools. For complete tool list with full schemas, search with filesystem tools in: /tmp/onemcp-tools-schema.json",
+  "message": "Showing 5 of 21 tools. For complete tool list with full schemas, search with filesystem tools in: /tmp/onemcp-tools-schema.json",
   "tools": [
     {
       "name": "playwright_browser_navigate",
@@ -240,13 +240,13 @@ Configure OneMCP behavior:
 ```json
 {
   "settings": {
-    "searchResultLimit": 2
+    "searchResultLimit": 5
   }
 }
 ```
 
 **Available Settings:**
-- `searchResultLimit` (number) - Number of tools to return per search query. Default: 2. Lower values reduce token usage but require more searches for discovery.
+- `searchResultLimit` (number) - Number of tools to return per search query. Default: 5. Lower values reduce token usage but require more searches for discovery.
 
 ### External Server Configuration
 
