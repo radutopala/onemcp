@@ -78,10 +78,10 @@ The official SDK provides:
 
 ```bash
 # Build for macOS
-GOOS=darwin GOARCH=amd64 go build -o one-mcp-server ./cmd/one-mcp-server
+GOOS=darwin GOARCH=amd64 go build -o one-mcp ./cmd/one-mcp
 
 # Build for Linux
-GOOS=linux GOARCH=amd64 go build -o one-mcp-server-linux ./cmd/one-mcp-server
+GOOS=linux GOARCH=amd64 go build -o one-mcp-linux ./cmd/one-mcp
 ```
 
 ### 2. Configure external servers
@@ -109,10 +109,10 @@ Create `.mcp-servers.json`:
 
 ```bash
 # Start OneMCP aggregator
-./one-mcp-server
+./one-mcp
 
 # Or with custom server name/version
-MCP_SERVER_NAME=my-aggregator MCP_SERVER_VERSION=1.0.0 ./one-mcp-server
+MCP_SERVER_NAME=my-aggregator MCP_SERVER_VERSION=1.0.0 ./one-mcp
 ```
 
 ### 4. Use with Claude Desktop
@@ -123,7 +123,7 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 {
   "mcpServers": {
     "onemcp": {
-      "command": "/path/to/one-mcp-server",
+      "command": "/path/to/one-mcp",
       "env": {
         "MCP_SERVER_NAME": "my-aggregator",
         "MCP_LOG_FILE": "/tmp/onemcp.log"
@@ -266,7 +266,7 @@ The `.mcp-servers.json` file defines external MCP servers to aggregate:
 
 - `MCP_SERVER_NAME` - Server name (default: "one-mcp-aggregator")
 - `MCP_SERVER_VERSION` - Server version (default: "0.1.0")
-- `MCP_LOG_FILE` - Log file path (default: "/tmp/one-mcp-server.log")
+- `MCP_LOG_FILE` - Log file path (default: "/tmp/one-mcp.log")
 
 ## Tool Naming Convention
 
@@ -301,7 +301,7 @@ Claude: Found playwright_browser_take_screenshot. Let me navigate and capture...
 
 ## Logging
 
-Logs are written to the file specified by `MCP_LOG_FILE` (default: `/tmp/one-mcp-server.log`):
+Logs are written to the file specified by `MCP_LOG_FILE` (default: `/tmp/one-mcp.log`):
 
 ```
 time=2025-11-11T10:00:00.000+00:00 level=INFO msg="Starting OneMCP aggregator server over stdio..." name=one-mcp-aggregator version=0.2.0
@@ -339,7 +339,7 @@ time=2025-11-11T10:00:04.000+00:00 level=INFO msg="Tool execution successful" na
 ```
 .
 ├── cmd/
-│   └── one-mcp-server/
+│   └── one-mcp/
 │       └── main.go              # Entry point
 ├── internal/
 │   ├── mcp/

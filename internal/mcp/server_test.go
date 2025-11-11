@@ -241,8 +241,8 @@ func (s *AggregatorServerTestSuite) TestToolSearch_MaxLimit() {
 // TestToolExecute tests successful tool execution
 func (s *AggregatorServerTestSuite) TestToolExecute() {
 	input := ToolExecuteInput{
-		ToolName:   "test_tool_1",
-		Parameters: map[string]any{"param1": "value1"},
+		ToolName:  "test_tool_1",
+		Arguments: map[string]any{"param1": "value1"},
 	}
 
 	result, _, err := s.server.handleToolExecute(s.ctx, nil, input)
@@ -262,8 +262,8 @@ func (s *AggregatorServerTestSuite) TestToolExecute() {
 // TestToolExecute_NotFound tests error handling for missing tools
 func (s *AggregatorServerTestSuite) TestToolExecute_NotFound() {
 	input := ToolExecuteInput{
-		ToolName:   "nonexistent_tool",
-		Parameters: map[string]any{},
+		ToolName:  "nonexistent_tool",
+		Arguments: map[string]any{},
 	}
 
 	result, _, err := s.server.handleToolExecute(s.ctx, nil, input)
@@ -281,12 +281,12 @@ func (s *AggregatorServerTestSuite) TestToolExecuteBatch() {
 	input := ToolExecuteBatchInput{
 		Tools: []tools.ToolExecution{
 			{
-				ToolName:   "test_tool_1",
-				Parameters: map[string]any{"param1": "value1"},
+				ToolName:  "test_tool_1",
+				Arguments: map[string]any{"param1": "value1"},
 			},
 			{
-				ToolName:   "test_tool_2",
-				Parameters: map[string]any{"param2": 42},
+				ToolName:  "test_tool_2",
+				Arguments: map[string]any{"param2": 42},
 			},
 		},
 		ContinueOnError: false,
@@ -309,16 +309,16 @@ func (s *AggregatorServerTestSuite) TestToolExecuteBatch_WithFailure() {
 	input := ToolExecuteBatchInput{
 		Tools: []tools.ToolExecution{
 			{
-				ToolName:   "test_tool_1",
-				Parameters: map[string]any{"param1": "value1"},
+				ToolName:  "test_tool_1",
+				Arguments: map[string]any{"param1": "value1"},
 			},
 			{
-				ToolName:   "nonexistent_tool",
-				Parameters: map[string]any{},
+				ToolName:  "nonexistent_tool",
+				Arguments: map[string]any{},
 			},
 			{
-				ToolName:   "test_tool_2",
-				Parameters: map[string]any{"param2": 42},
+				ToolName:  "test_tool_2",
+				Arguments: map[string]any{"param2": 42},
 			},
 		},
 		ContinueOnError: true, // Continue despite failure
@@ -345,16 +345,16 @@ func (s *AggregatorServerTestSuite) TestToolExecuteBatch_StopOnError() {
 	input := ToolExecuteBatchInput{
 		Tools: []tools.ToolExecution{
 			{
-				ToolName:   "test_tool_1",
-				Parameters: map[string]any{"param1": "value1"},
+				ToolName:  "test_tool_1",
+				Arguments: map[string]any{"param1": "value1"},
 			},
 			{
-				ToolName:   "nonexistent_tool",
-				Parameters: map[string]any{},
+				ToolName:  "nonexistent_tool",
+				Arguments: map[string]any{},
 			},
 			{
-				ToolName:   "test_tool_2",
-				Parameters: map[string]any{"param2": 42},
+				ToolName:  "test_tool_2",
+				Arguments: map[string]any{"param2": 42},
 			},
 		},
 		ContinueOnError: false, // Stop on first failure

@@ -275,12 +275,12 @@ func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallTo
 
 // ToolExecuteInput defines the input for tool_execute
 type ToolExecuteInput struct {
-	ToolName   string         `json:"tool_name" jsonschema:"Name of the tool to execute"`
-	Parameters map[string]any `json:"parameters" jsonschema:"Tool-specific parameters as an object"`
+	ToolName  string         `json:"tool_name" jsonschema:"Name of the tool to execute"`
+	Arguments map[string]any `json:"arguments" jsonschema:"Tool-specific arguments as an object"`
 }
 
 func (s *AggregatorServer) handleToolExecute(ctx context.Context, req *mcp.CallToolRequest, input ToolExecuteInput) (*mcp.CallToolResult, any, error) {
-	result, err := s.registry.Execute(ctx, input.ToolName, input.Parameters)
+	result, err := s.registry.Execute(ctx, input.ToolName, input.Arguments)
 	if err != nil {
 		return &mcp.CallToolResult{
 			IsError: true,

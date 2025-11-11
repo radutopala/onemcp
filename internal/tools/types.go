@@ -44,8 +44,8 @@ type BatchExecutionRequest struct {
 
 // ToolExecution represents a single tool execution request.
 type ToolExecution struct {
-	ToolName   string         `json:"tool_name"`
-	Parameters map[string]any `json:"parameters"`
+	ToolName  string         `json:"tool_name"`
+	Arguments map[string]any `json:"arguments"`
 }
 
 // BatchExecutionResult represents the result of a batch execution.

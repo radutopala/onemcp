@@ -1,6 +1,6 @@
-# Binaries
-one-mcp-server
-one-mcp-server-*
+# Binaries (in root directory only)
+/one-mcp
+/one-mcp-*
 
 # Go
 *.exe
@@ -21,3 +21,4 @@ go.work
 
 # Credentials
 .mcp-servers.json
+.mcp.json

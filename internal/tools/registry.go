@@ -205,7 +205,7 @@ func (r *Registry) ExecuteBatch(ctx context.Context, request *BatchExecutionRequ
 	failedCount := 0
 
 	for _, toolExec := range request.Tools {
-		result, err := r.Execute(ctx, toolExec.ToolName, toolExec.Parameters)
+		result, err := r.Execute(ctx, toolExec.ToolName, toolExec.Arguments)
 		if err != nil {
 			// This shouldn't happen as Execute returns ExecutionResult even on error
 			return nil, err

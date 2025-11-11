@@ -13,7 +13,7 @@ func main() {
 	// Create log file
 	logPath := os.Getenv("MCP_LOG_FILE")
 	if logPath == "" {
-		logPath = "/tmp/one-mcp-server.log"
+		logPath = "/tmp/one-mcp.log"
 	}
 
 	// Open log file
