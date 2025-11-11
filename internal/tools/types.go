@@ -20,7 +20,7 @@ type Tool struct {
 	Name        string      // Tool name
 	Category    string      // Category for organizing tools (e.g., "browser", "playwright", etc.)
 	Description string      // Tool description
-	InputSchema interface{} // Schema for tool parameters (can be map[string]any or struct with jsonschema tags)
+	InputSchema any         // Schema for tool parameters (can be map[string]any or struct with jsonschema tags)
 	Handler     ToolHandler // Handler function for internal tools (nil for external)
 	Source      ToolSource  // Where the tool is implemented
 	SourceName  string      // Name of external MCP server (if external)

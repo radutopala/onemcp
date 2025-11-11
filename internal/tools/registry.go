@@ -10,7 +10,7 @@ import (
 
 // ExternalToolExecutor defines the interface for executing external tools.
 type ExternalToolExecutor interface {
-	CallTool(ctx context.Context, toolName string, arguments map[string]interface{}) (interface{}, error)
+	CallTool(ctx context.Context, toolName string, arguments map[string]any) (any, error)
 }
 
 // Registry manages all available tools and their execution.
@@ -36,7 +36,7 @@ func (r *Registry) RegisterExternalExecutor(sourceName string, executor External
 }
 
 // RegisterExternalTool registers a tool from an external MCP server.
-func (r *Registry) RegisterExternalTool(sourceName, category string, toolName, description string, inputSchema map[string]interface{}) error {
+func (r *Registry) RegisterExternalTool(sourceName, category string, toolName, description string, inputSchema map[string]any) error {
 	// Prefix tool name with server name to avoid conflicts
 	prefixedName := sourceName + "_" + toolName
 
@@ -144,8 +144,8 @@ func (r *Registry) Execute(ctx context.Context, toolName string, parameters map[
 			}, nil
 		}
 
-		// Convert parameters to map[string]interface{} for external call
-		paramsInterface := make(map[string]interface{})
+		// Convert parameters to map[string]any for external call
+		paramsInterface := make(map[string]any)
 		for k, v := range parameters {
 			paramsInterface[k] = v
 		}
@@ -159,7 +159,7 @@ func (r *Registry) Execute(ctx context.Context, toolName string, parameters map[
 			execErr = err
 		} else {
 			// Convert result to map[string]any
-			if resultMap, ok := externalResult.(map[string]interface{}); ok {
+			if resultMap, ok := externalResult.(map[string]any); ok {
 				result = make(map[string]any)
 				for k, v := range resultMap {
 					result[k] = v
