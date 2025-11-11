@@ -17,14 +17,17 @@ OneMCP is a **generic MCP aggregator** that:
 
 ## Why OneMCP?
 
-When working with many MCP servers, exposing hundreds of tools directly to Claude consumes massive amounts of tokens and context window. As explained in Anthropic's [Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) article, the meta-tool pattern solves this by:
+When working with many MCP servers, exposing hundreds of tools directly to LLMs consumes massive amounts of tokens and context window. As explained in Anthropic's [Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) article, the meta-tool pattern solves this by:
 
 1. **Reducing token overhead**: Instead of loading 50+ tool schemas (tens of thousands of tokens), expose just 2 meta-tools
-2. **Progressive discovery**: Claude searches for relevant tools only when needed
+2. **Progressive discovery**: LLMs search for relevant tools only when needed
 3. **Preserving context**: More room for actual conversation and code, less for tool definitions
 4. **Scaling gracefully**: Add new servers without increasing baseline token usage
 
-OneMCP implements this pattern as a **universal aggregator** - it works with any MCP server, not just specific integrations.
+OneMCP implements this pattern as a **universal aggregator** that works with:
+- Any LLM that supports MCP (Claude, OpenAI, Gemini, local models via Claude Desktop, etc.)
+- Any MCP-compliant server
+- Any deployment scenario (local development, production APIs, agent frameworks)
 
 ## Architecture
 
@@ -130,9 +133,9 @@ Create `.onemcp.json`:
 MCP_SERVER_NAME=my-aggregator MCP_SERVER_VERSION=1.0.0 ./one-mcp
 ```
 
-### 4. Use with Claude Desktop
+### 4. Use with MCP Clients
 
-Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your MCP client config. For example, Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
@@ -297,7 +300,7 @@ This prevents naming conflicts when aggregating multiple servers.
 
 ## Progressive Discovery Workflow
 
-The recommended workflow for Claude:
+The recommended workflow for LLMs:
 
 1. **Search for tools**: Use `tool_search` with filters to find relevant tools
 2. **Get detailed schemas**: Use `detail_level: "full_schema"` for tools you plan to use
@@ -307,14 +310,14 @@ The recommended workflow for Claude:
 ```
 User: "Take a screenshot of example.com"
 
-Claude: Let me search for screenshot tools...
+LLM: Let me search for screenshot tools...
 → tool_search(query="screenshot", detail_level="full_schema")
 
-Claude: Found playwright_browser_navigate and playwright_browser_take_screenshot. 
+LLM: Found playwright_browser_navigate and playwright_browser_take_screenshot. 
 Let me navigate first...
 → tool_execute(tool_name: "playwright_browser_navigate", arguments: {url: "https://example.com"})
 
-Claude: Now taking screenshot...
+LLM: Now taking screenshot...
 → tool_execute(tool_name: "playwright_browser_take_screenshot", arguments: {filename: "example.png"})
 ```
 
