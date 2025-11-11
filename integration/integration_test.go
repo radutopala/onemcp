@@ -205,7 +205,7 @@ func (s *IntegrationTestSuite) TestToolsList() {
 
 	tools, ok := resp.Result["tools"].([]any)
 	require.True(s.T(), ok)
-	require.GreaterOrEqual(s.T(), len(tools), 3, "Should expose at least 3 meta-tools")
+	require.GreaterOrEqual(s.T(), len(tools), 2, "Should expose at least 2 meta-tools")
 
 	// Verify meta-tools are present
 	toolNames := make([]string, 0)
@@ -217,7 +217,6 @@ func (s *IntegrationTestSuite) TestToolsList() {
 
 	require.Contains(s.T(), toolNames, "tool_search")
 	require.Contains(s.T(), toolNames, "tool_execute")
-	require.Contains(s.T(), toolNames, "tool_execute_batch")
 }
 
 // TestToolSearch tests the tool_search functionality
@@ -300,64 +299,6 @@ func (s *IntegrationTestSuite) TestToolExecute() {
 	require.True(s.T(), ok)
 	require.Equal(s.T(), "text", firstContent["type"])
 	require.Contains(s.T(), firstContent["text"].(string), "error", "Should contain error message for invalid tool")
-}
-
-// TestToolExecuteBatch tests the tool_execute_batch functionality
-func (s *IntegrationTestSuite) TestToolExecuteBatch() {
-	// Initialize
-	s.sendRequest("initialize", map[string]any{
-		"protocolVersion": "2024-11-05",
-		"capabilities":    map[string]any{},
-		"clientInfo": map[string]any{
-			"name":    "integration-test",
-			"version": "1.0.0",
-		},
-	})
-	s.readResponse()
-
-	// Test tool_execute_batch with multiple tool_search calls (without limit argument)
-	s.sendRequest("tools/call", map[string]any{
-		"name": "tool_execute_batch",
-		"arguments": map[string]any{
-			"tools": []map[string]any{
-				{
-					"tool_name": "tool_search",
-					"arguments": map[string]any{
-						"detail_level": "names_only",
-					},
-				},
-				{
-					"tool_name": "tool_search",
-					"arguments": map[string]any{
-						"detail_level": "summary",
-					},
-				},
-			},
-			"continue_on_error": true,
-		},
-	})
-	resp := s.readResponse()
-
-	require.Nil(s.T(), resp.Error, "tool_execute_batch should not return error")
-	require.NotNil(s.T(), resp.Result)
-	require.Contains(s.T(), resp.Result, "content")
-
-	content, ok := resp.Result["content"].([]any)
-	require.True(s.T(), ok)
-	require.Greater(s.T(), len(content), 0)
-
-	firstContent, ok := content[0].(map[string]any)
-	require.True(s.T(), ok)
-	require.Equal(s.T(), "text", firstContent["type"])
-
-	var result map[string]any
-	err := json.Unmarshal([]byte(firstContent["text"].(string)), &result)
-	require.NoError(s.T(), err)
-	require.Contains(s.T(), result, "results")
-
-	results, ok := result["results"].([]any)
-	require.True(s.T(), ok)
-	require.Equal(s.T(), 2, len(results), "Should have 2 results for 2 operations")
 }
 
 // TestSchemaFile tests the schema file functionality

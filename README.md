@@ -13,17 +13,15 @@ OneMCP is a **generic MCP aggregator** that:
 - Supports custom internal tools with type-safe registration
 - Exposes a unified meta-tool interface to reduce token usage
 - Supports progressive tool discovery (search before loading schemas)
-- Enables batch execution across multiple servers
 - Works with any MCP-compliant server
 
 ## Architecture
 
 ```
 OneMCP Aggregator
-    ├── Meta-Tools (3)
+    ├── Meta-Tools (2)
     │   ├── tool_search        - Discover available tools
-    │   ├── tool_execute       - Execute a single tool
-    │   └── tool_execute_batch - Execute multiple tools
+    │   └── tool_execute       - Execute a single tool
     │
     ├── Internal Tools (optional)
     │   └── Custom Go-based tools with type-safe handlers
@@ -36,12 +34,11 @@ OneMCP Aggregator
 
 ### Benefits
 
-1. **Token Efficiency**: 98% reduction - expose 3 meta-tools instead of hundreds of individual tools
+1. **Token Efficiency**: 99% reduction - expose 2 meta-tools instead of hundreds of individual tools
 2. **Progressive Discovery**: Search first, load schemas only for needed tools
-3. **Batch Execution**: Execute multiple operations in one call
-4. **Universal**: Works with any MCP-compliant server
-5. **Flexible**: Support both external servers (config) and internal tools (Go code)
-6. **Type-Safe**: Built-in tools leverage Go's type system with automatic schema inference
+3. **Universal**: Works with any MCP-compliant server
+4. **Flexible**: Support both external servers (config) and internal tools (Go code)
+5. **Type-Safe**: Built-in tools leverage Go's type system with automatic schema inference
 
 ## Performance Optimizations
 
@@ -53,7 +50,6 @@ OneMCP includes several optimizations for token efficiency and speed:
 4. **Schema Caching**: External tool schemas cached at startup, no repeated fetching
 5. **Fuzzy Search**: Levenshtein distance algorithm handles typos without multiple queries
 6. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
-7. **Single Round-Trip**: Batch execution combines multiple operations
 
 **Token Usage Examples:**
 - `names_only` search (5 tools): ~50 tokens total
@@ -223,33 +219,6 @@ Execute a single tool by name.
 }
 ```
 
-### 3. `tool_execute_batch`
-Execute multiple tools in sequence.
-
-**Arguments:**
-- `tools` (required) - Array of `{tool_name, arguments}` objects
-- `continue_on_error` (optional) - Continue if a tool fails (default: false)
-
-**Example:**
-```json
-{
-  "tool_name": "tool_execute_batch",
-  "arguments": {
-    "tools": [
-      {
-        "tool_name": "playwright_browser_navigate",
-        "arguments": {"url": "https://example.com"}
-      },
-      {
-        "tool_name": "playwright_browser_take_screenshot",
-        "arguments": {"filename": "screenshot.png"}
-      }
-    ],
-    "continue_on_error": true
-  }
-}
-```
-
 ## Configuration
 
 ### External Server Configuration
@@ -292,7 +261,7 @@ The recommended workflow for Claude:
 
 1. **Search for tools**: Use `tool_search` with filters to find relevant tools
 2. **Get detailed schemas**: Use `detail_level: "full_schema"` for tools you plan to use
-3. **Execute tools**: Use `tool_execute` or `tool_execute_batch` with validated arguments
+3. **Execute tools**: Use `tool_execute` with validated arguments
 
 **Example conversation:**
 ```
@@ -301,11 +270,12 @@ User: "Take a screenshot of example.com"
 Claude: Let me search for screenshot tools...
 → tool_search(query="screenshot", detail_level="full_schema")
 
-Claude: Found playwright_browser_take_screenshot. Let me navigate and capture...
-→ tool_execute_batch(tools=[
-    {tool_name: "playwright_browser_navigate", arguments: {url: "https://example.com"}},
-    {tool_name: "playwright_browser_take_screenshot", arguments: {filename: "example.png"}}
-  ])
+Claude: Found playwright_browser_navigate and playwright_browser_take_screenshot. 
+Let me navigate first...
+→ tool_execute(tool_name: "playwright_browser_navigate", arguments: {url: "https://example.com"})
+
+Claude: Now taking screenshot...
+→ tool_execute(tool_name: "playwright_browser_take_screenshot", arguments: {filename: "example.png"})
 ```
 
 ## Logging

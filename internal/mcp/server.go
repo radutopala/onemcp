@@ -231,12 +231,6 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 		Description: "Execute a single tool by name with parameters. Use tool_search first to discover available tools.",
 	}, s.handleToolExecute)
 
-	// Register tool_execute_batch
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "tool_execute_batch",
-		Description: "Execute multiple tools in sequence. Returns results for all executions.",
-	}, s.handleToolExecuteBatch)
-
 	return nil
 }
 
@@ -348,57 +342,6 @@ func (s *AggregatorServer) handleToolExecute(ctx context.Context, req *mcp.CallT
 		"error":             result.Error,
 		"error_type":        result.ErrorType,
 		"execution_time_ms": result.ExecutionTimeMs,
-	}
-
-	resultJSON, _ := json.Marshal(resultMap)
-
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(resultJSON)},
-		},
-	}, nil, nil
-}
-
-// ToolExecuteBatchInput defines the input for tool_execute_batch
-type ToolExecuteBatchInput struct {
-	Tools           []tools.ToolExecution `json:"tools" jsonschema:"Array of tool executions"`
-	ContinueOnError bool                  `json:"continue_on_error,omitempty" jsonschema:"If true, continues executing remaining tools even if one fails. Default: false"`
-}
-
-func (s *AggregatorServer) handleToolExecuteBatch(ctx context.Context, req *mcp.CallToolRequest, input ToolExecuteBatchInput) (*mcp.CallToolResult, any, error) {
-	request := &tools.BatchExecutionRequest{
-		Tools:           input.Tools,
-		ContinueOnError: input.ContinueOnError,
-	}
-
-	result, err := s.registry.ExecuteBatch(ctx, request)
-	if err != nil {
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: err.Error()},
-			},
-		}, nil, nil
-	}
-
-	// Convert BatchExecutionResult to map[string]any
-	results := make([]map[string]any, len(result.Results))
-	for i, r := range result.Results {
-		results[i] = map[string]any{
-			"success":           r.Success,
-			"tool_name":         r.ToolName,
-			"result":            r.Result,
-			"error":             r.Error,
-			"error_type":        r.ErrorType,
-			"execution_time_ms": r.ExecutionTimeMs,
-		}
-	}
-
-	resultMap := map[string]any{
-		"results":                 results,
-		"total_execution_time_ms": result.TotalExecutionTimeMs,
-		"successful_count":        result.SuccessfulCount,
-		"failed_count":            result.FailedCount,
 	}
 
 	resultJSON, _ := json.Marshal(resultMap)
