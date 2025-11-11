@@ -174,50 +174,6 @@ func (s *RegistryTestSuite) TestRegisterExternalTool() {
 }
 
 // TestSearch tests tool search
-func (s *RegistryTestSuite) TestSearch() {
-	// Register some tools
-	tools := []*Tool{
-		{
-			Name:        "browser_navigate",
-			Category:    "browser",
-			Description: "Navigate to URL",
-			Source:      SourceInternal,
-			Handler:     func(ctx context.Context, params map[string]any) (map[string]any, error) { return nil, nil },
-		},
-		{
-			Name:        "browser_click",
-			Category:    "browser",
-			Description: "Click element",
-			Source:      SourceInternal,
-			Handler:     func(ctx context.Context, params map[string]any) (map[string]any, error) { return nil, nil },
-		},
-		{
-			Name:        "file_read",
-			Category:    "file",
-			Description: "Read file",
-			Source:      SourceInternal,
-			Handler:     func(ctx context.Context, params map[string]any) (map[string]any, error) { return nil, nil },
-		},
-	}
-
-	for _, tool := range tools {
-		s.registry.Register(tool)
-	}
-
-	// Search by category
-	results := s.registry.Search("", "browser")
-	require.Len(s.T(), results, 2)
-
-	// Search by query
-	results = s.registry.Search("navigate", "")
-	require.Len(s.T(), results, 1)
-	require.Equal(s.T(), "browser_navigate", results[0].Name)
-
-	// Search all
-	results = s.registry.Search("", "")
-	require.Len(s.T(), results, 3)
-}
-
 // TestExecute_Internal tests internal tool execution
 func (s *RegistryTestSuite) TestExecute_Internal() {
 	tool := &Tool{

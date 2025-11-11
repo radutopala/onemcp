@@ -9,6 +9,7 @@ import (
 
 	"github.com/radutopala/onemcp/internal/mcpclient"
 	"github.com/radutopala/onemcp/internal/tools"
+	"github.com/radutopala/onemcp/internal/vectorstore"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -29,9 +30,9 @@ type AggregatorServer struct {
 	server            *mcp.Server
 	logger            *slog.Logger
 	registry          *tools.Registry
+	vectorStore       vectorstore.VectorStore // Semantic search engine
 	externalClients   map[string]*mcpclient.MCPClient
-	schemaFilePath    string // Path to generated schema file
-	searchResultLimit int    // Number of tools to return per search
+	searchResultLimit int // Number of tools to return per search
 }
 
 // NewAggregatorServer creates a new generic aggregator server
@@ -78,9 +79,9 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 
 	aggregator.server = server
 
-	// Generate schema file with all tools (after meta-tools are registered)
-	if err := aggregator.generateSchemaFile(); err != nil {
-		logger.Warn("Failed to generate schema file", "error", err)
+	// Initialize vector store for semantic search
+	if err := aggregator.initializeVectorStore(); err != nil {
+		logger.Warn("Failed to initialize vector store, semantic search disabled", "error", err)
 	}
 
 	return aggregator, nil
@@ -181,57 +182,35 @@ func (s *AggregatorServer) connectExternalServer(ctx context.Context, name strin
 	return nil
 }
 
-// generateSchemaFile creates a JSON file with all tool schemas
-func (s *AggregatorServer) generateSchemaFile() error {
-	// Get all tools with full schemas
-	allTools := s.registry.Search("", "")
+// initializeVectorStore builds the in-memory vector store for semantic search
+func (s *AggregatorServer) initializeVectorStore() error {
+	// Get all tools from registry
+	allTools := s.registry.ListAll()
 
-	// Build tool metadata with full schemas
-	toolSchemas := make([]tools.ToolMetadata, len(allTools))
-	for i, tool := range allTools {
-		metadata := tools.ToolMetadata{
-			Name:        tool.Name,
-			Category:    tool.Category,
-			Description: tool.Description,
-		}
-
-		// Include full schema
-		if tool.InputSchema != nil {
-			if schemaMap, ok := tool.InputSchema.(map[string]any); ok {
-				metadata.Parameters = schemaMap
-			}
-		}
-
-		toolSchemas[i] = metadata
+	if len(allTools) == 0 {
+		s.logger.Info("No tools to index in vector store")
+		return nil
 	}
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(toolSchemas, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal tool schemas: %w", err)
+	// Create TF-IDF embedder (pure Go, no external dependencies)
+	embedder := vectorstore.NewTFIDFEmbedder(s.logger)
+
+	// Create vector store
+	store := vectorstore.NewInMemoryVectorStore(embedder, s.logger)
+
+	// Build index from all tools
+	if err := store.BuildFromTools(allTools); err != nil {
+		return fmt.Errorf("failed to build vector store: %w", err)
 	}
 
-	// Write to temporary file
-	filePath := "/tmp/onemcp-tools-schema.json"
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write schema file: %w", err)
-	}
-
-	s.schemaFilePath = filePath
-	s.logger.Info("Generated tool schema file", "path", filePath, "tool_count", len(toolSchemas))
+	s.vectorStore = store
+	s.logger.Info("Vector store initialized successfully", "indexed_tools", store.GetToolCount())
 
 	return nil
 }
 
 // Close shuts down all external MCP server connections.
 func (s *AggregatorServer) Close() error {
-	// Clean up schema file
-	if s.schemaFilePath != "" {
-		if err := os.Remove(s.schemaFilePath); err != nil {
-			s.logger.Warn("Failed to remove schema file", "path", s.schemaFilePath, "error", err)
-		}
-	}
-
 	for name, client := range s.externalClients {
 		if err := client.Close(); err != nil {
 			s.logger.Warn("Error closing external client", "name", name, "error", err)
@@ -251,7 +230,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 	// Register tool_search
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tool_search",
-		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns exactly 5 tools per query. Use 'summary' or 'detailed' level to see descriptions and schemas. For complete tool list, use the schema_file path returned in results.",
+		Description: "Search and discover available tools using semantic search. Supports natural language queries (e.g., 'capture webpage screenshot', 'navigate browser', 'fetch data'). Returns up to 5 tools per query ranked by relevance. Use 'summary' or 'detailed' level to see descriptions and schemas.",
 	}, s.handleToolSearch)
 
 	// Register tool_execute
@@ -267,7 +246,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 
 // ToolSearchInput defines the input for tool_search
 type ToolSearchInput struct {
-	Query       string `json:"query,omitempty" jsonschema:"Search term to filter tools by name or description. Must be a single word for fuzzy matching to work (e.g., 'browser', 'navigate', 'screenshot')."`
+	Query       string `json:"query,omitempty" jsonschema:"Search term to filter tools by name or description. Supports natural language queries (e.g., 'capture screenshot', 'navigate browser', 'read file')."`
 	Category    string `json:"category,omitempty" jsonschema:"Optional category filter"`
 	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Detail level: 'names_only' (just names, for broad exploration), 'summary' (name + description, recommended for targeted search), 'detailed' (includes parameter schema), 'full_schema' (complete schema). Default: 'summary'. Use 'summary' or 'detailed' when searching for specific functionality."`
 	Offset      int    `json:"offset,omitempty" jsonschema:"Number of results to skip for pagination. Default: 0"`
@@ -287,7 +266,33 @@ func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallTo
 		offset = 0
 	}
 
-	foundTools := s.registry.Search(input.Query, input.Category)
+	var foundTools []*tools.Tool
+
+	// Use semantic search with vector store
+	if s.vectorStore != nil {
+		var err error
+		foundTools, err = s.vectorStore.Search(input.Query, limit*3) // Get more results for filtering
+		if err != nil {
+			s.logger.Error("Semantic search failed", "error", err)
+			foundTools = []*tools.Tool{} // Return empty results on error
+		}
+
+		// Apply category filter if specified
+		if input.Category != "" {
+			filtered := make([]*tools.Tool, 0, len(foundTools))
+			for _, tool := range foundTools {
+				if tool.Category == input.Category {
+					filtered = append(filtered, tool)
+				}
+			}
+			foundTools = filtered
+		}
+	} else {
+		// No vector store available
+		s.logger.Warn("Vector store not initialized")
+		foundTools = []*tools.Tool{}
+	}
+
 	totalCount := len(foundTools)
 
 	// Apply pagination
@@ -332,8 +337,6 @@ func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallTo
 		"limit":          limit,
 		"has_more":       end < totalCount,
 		"tools":          toolMetadata,
-		"schema_file":    s.schemaFilePath,
-		"message":        fmt.Sprintf("Showing %d of %d tools. For complete tool list with full schemas, search with filesystem tools in: %s", len(toolMetadata), totalCount, s.schemaFilePath),
 	}
 
 	// Convert result to JSON for the text content
