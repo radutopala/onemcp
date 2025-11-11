@@ -15,11 +15,17 @@
       "category": "filesystem",
       "enabled": true
     },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "category": "storage",
+      "enabled": true
+    },
     "brave-search": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-brave-search"],
       "category": "search",
-      "enabled": true,
+      "enabled": false,
       "env": {
         "BRAVE_API_KEY": "your-api-key"
       }
@@ -28,6 +34,18 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-fetch"],
       "category": "web",
+      "enabled": true
+    },
+    "time": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-time"],
+      "category": "utility",
+      "enabled": true
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "category": "reasoning",
       "enabled": true
     },
     "git": {
@@ -40,7 +58,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "category": "vcs",
-      "enabled": true,
+      "enabled": false,
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token"
       }
@@ -49,7 +67,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-gitlab"],
       "category": "vcs",
-      "enabled": true,
+      "enabled": false,
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "your-token"
       }
@@ -58,16 +76,22 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-google-maps"],
       "category": "maps",
-      "enabled": true,
+      "enabled": false,
       "env": {
         "GOOGLE_MAPS_API_KEY": "your-api-key"
       }
+    },
+    "everything": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "category": "search",
+      "enabled": true
     },
     "postgres": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"],
       "category": "database",
-      "enabled": true
+      "enabled": false
     },
     "puppeteer": {
       "command": "npx",
@@ -85,7 +109,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-slack"],
       "category": "communication",
-      "enabled": true,
+      "enabled": false,
       "env": {
         "SLACK_BOT_TOKEN": "xoxb-your-token"
       }
@@ -94,9 +118,19 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sentry"],
       "category": "monitoring",
-      "enabled": true,
+      "enabled": false,
       "env": {
         "SENTRY_AUTH_TOKEN": "your-token"
+      }
+    },
+    "aws-kb-retrieval": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-aws-kb-retrieval"],
+      "category": "ai",
+      "enabled": false,
+      "env": {
+        "AWS_ACCESS_KEY_ID": "your-access-key",
+        "AWS_SECRET_ACCESS_KEY": "your-secret-key"
       }
     }
   }
