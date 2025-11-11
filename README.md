@@ -59,10 +59,10 @@ OneMCP Aggregator
 OneMCP includes several optimizations for token efficiency and speed:
 
 1. **Configurable Result Limit**: Returns 5 tools per search by default (configurable via `.onemcp.json`)
-2. **Semantic Search**: Word2Vec embeddings understand tool relationships for smarter discovery
+2. **Semantic Search**: TF-IDF embeddings for fast, accurate keyword-based discovery
 3. **Progressive Discovery**: Four detail levels (names_only → summary → detailed → full_schema)
 4. **Schema Caching**: External tool schemas cached at startup, no repeated fetching
-5. **In-Memory Vector Store**: Pre-computed embeddings for instant semantic search
+5. **In-Memory Vector Store**: Pre-computed embeddings for instant search
 6. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
 
 **Token Usage Examples (default 5 tools):**
@@ -72,23 +72,25 @@ OneMCP includes several optimizations for token efficiency and speed:
 
 ### Semantic Search
 
-OneMCP uses **Word2Vec embeddings** by default for intelligent tool discovery:
+OneMCP uses **TF-IDF embeddings** by default for fast and accurate tool discovery:
 
-- **Learns word relationships**: Understands that "screenshot" and "capture" are similar
-- **Context-aware**: Considers how words appear together in tool descriptions
-- **Pure Go**: No external ML dependencies, trains automatically at startup
-- **Configurable**: Switch to TF-IDF for faster keyword-based search
+- **Fast and reliable**: Excellent keyword matching with term frequency analysis
+- **Works with small tool sets**: Effective with as few as 10-20 tools
+- **Pure Go**: No external dependencies, instant startup
+- **Experimental Word2Vec option**: Available for larger tool sets (50+ tools) where learning word relationships may improve results
 
-**Example:** Query "capture page image" finds `browser_screenshot` tool even though the exact words don't match, because Word2Vec learned the semantic relationship between "capture/screenshot" and "page/browser" from tool descriptions.
+**Example:** Query "screenshot browser" finds all screenshot-related tools ranked by relevance.
 
 **Configuration:**
 ```json
 {
   "settings": {
-    "embedderType": "word2vec"  // or "tfidf" for keyword-based
+    "embedderType": "tfidf"  // or "word2vec" for experimental semantic learning
   }
 }
 ```
+
+**When to use Word2Vec:** If you have 50+ tools with rich descriptions and notice that keyword matching isn't finding semantically related tools, try Word2Vec. It learns that "capture" and "screenshot" are related by observing how words appear together.
 
 ## Technology
 
@@ -138,7 +140,7 @@ Create `.onemcp.json`:
 {
   "settings": {
     "searchResultLimit": 5,
-    "embedderType": "word2vec"
+    "embedderType": "tfidf"
   },
   "mcpServers": {
     "playwright": {
@@ -289,14 +291,14 @@ Configure OneMCP behavior:
 {
   "settings": {
     "searchResultLimit": 5,
-    "embedderType": "word2vec"
+    "embedderType": "tfidf"
   }
 }
 ```
 
 **Available Settings:**
 - `searchResultLimit` (number) - Number of tools to return per search query. Default: 5. Lower values reduce token usage but require more searches for discovery.
-- `embedderType` (string) - Type of semantic search embedder. Options: `"word2vec"` (default, better semantic understanding), `"tfidf"` (faster, keyword-based). Word2Vec learns word relationships from tool descriptions for improved search relevance.
+- `embedderType` (string) - Type of semantic search embedder. Options: `"tfidf"` (default, fast and accurate), `"word2vec"` (experimental, learns word relationships). TF-IDF provides excellent keyword matching, while Word2Vec may work better with larger tool sets (50+ tools).
 
 ### External Server Configuration
 
@@ -445,7 +447,7 @@ Simply add to the `mcpServers` section in `.onemcp.json` - no code changes requi
 {
   "settings": {
     "searchResultLimit": 5,
-    "embedderType": "word2vec"
+    "embedderType": "tfidf"
   },
   "mcpServers": {
     "your-server": {

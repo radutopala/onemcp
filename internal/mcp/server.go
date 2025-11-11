@@ -55,7 +55,7 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 		// Set default embedder type
 		config = &Config{
 			Settings: Settings{
-				EmbedderType: "word2vec",
+				EmbedderType: "tfidf",
 			},
 		}
 	} else {
@@ -67,7 +67,7 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 
 		// Set default embedder type if not specified
 		if config.Settings.EmbedderType == "" {
-			config.Settings.EmbedderType = "word2vec"
+			config.Settings.EmbedderType = "tfidf"
 		}
 
 		// Initialize external servers from config
@@ -220,8 +220,8 @@ func (s *AggregatorServer) initializeVectorStore() error {
 		s.logger.Info("Creating TF-IDF embedder")
 		embedder = vectorstore.NewTFIDFEmbedder(s.logger)
 	default:
-		s.logger.Warn("Unknown embedder type, defaulting to word2vec", "type", s.embedderType)
-		embedder = vectorstore.NewWord2VecEmbedder(5, 100)
+		s.logger.Warn("Unknown embedder type, defaulting to tfidf", "type", s.embedderType)
+		embedder = vectorstore.NewTFIDFEmbedder(s.logger)
 	}
 
 	// Create vector store
