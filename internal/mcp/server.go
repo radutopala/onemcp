@@ -167,7 +167,7 @@ func (s *AggregatorServer) registerMetaTools(server *mcp.Server) error {
 	// Register tool_search
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "tool_search",
-		Description: "Search and discover available tools. Returns tool metadata with optional parameter schemas. When searching for specific functionality, use 'summary' or 'detailed' level to see descriptions and determine if tools match your needs. Use 'names_only' for broad exploration only.",
+		Description: "Search and discover available tools with fuzzy matching. Use a SINGLE WORD query (e.g., 'browser', 'screenshot', 'fetch') for best results. Returns up to 5 tools by default. Use 'summary' or 'detailed' level to see descriptions and schemas.",
 	}, s.handleToolSearch)
 
 	// Register tool_execute
