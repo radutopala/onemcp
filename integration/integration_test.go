@@ -52,8 +52,8 @@ type IntegrationTestSuite struct {
 
 // SetupSuite builds the binary before running tests
 func (s *IntegrationTestSuite) SetupSuite() {
-	// Get project root (integration tests are in internal/integration/)
-	projectRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	// Get project root (integration tests are in integration/)
+	projectRoot, err := filepath.Abs(filepath.Join(".."))
 	require.NoError(s.T(), err)
 
 	// Build the binary

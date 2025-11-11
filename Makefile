@@ -47,7 +47,7 @@ test-coverage:
 test-integration:
 	@echo "Running integration tests..."
 	@echo "Note: Binary will be built automatically by the test suite"
-	go test -v -tags=integration ./internal/integration/...
+	go test -v -tags=integration ./integration/...
 	@echo "Integration tests completed"
 
 # Show help
