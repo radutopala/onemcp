@@ -20,5 +20,5 @@ go.work
 *.swo
 
 # Credentials
-.mcp-servers.json
+.onemcp.json
 .mcp.json
