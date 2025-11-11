@@ -293,13 +293,15 @@ Define external MCP servers in the `mcpServers` section. OneMCP supports multipl
 {
   "mcpServers": {
     "remote-server": {
-      "url": "https://api.example.com/mcp", // HTTP URL for SSE transport
+      "url": "https://api.example.com/mcp", // HTTP endpoint URL (SSE transport)
       "category": "api",
       "enabled": true
     }
   }
 }
 ```
+
+**Note:** SSE transport is supported but being phased out in favor of Streamable HTTP in newer MCP specs. The `url` field maps to the SSE endpoint.
 
 **Configuration Fields:**
 - `command` (string) - Command to execute (for stdio transport)
