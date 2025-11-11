@@ -22,7 +22,8 @@ type Config struct {
 
 // Settings represents OneMCP settings
 type Settings struct {
-	SearchResultLimit int `json:"searchResultLimit"` // Number of tools to return per search (default: 5)
+	SearchResultLimit int    `json:"searchResultLimit"` // Number of tools to return per search (default: 5)
+	EmbedderType      string `json:"embedderType"`      // Type of embedder: "word2vec" or "tfidf" (default: "word2vec")
 }
 
 // AggregatorServer implements a generic MCP aggregator
@@ -32,7 +33,8 @@ type AggregatorServer struct {
 	registry          *tools.Registry
 	vectorStore       vectorstore.VectorStore // Semantic search engine
 	externalClients   map[string]*mcpclient.MCPClient
-	searchResultLimit int // Number of tools to return per search
+	searchResultLimit int    // Number of tools to return per search
+	embedderType      string // Type of embedder to use (word2vec or tfidf)
 }
 
 // NewAggregatorServer creates a new generic aggregator server
@@ -50,6 +52,12 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	config, err := aggregator.loadConfig()
 	if err != nil {
 		logger.Warn("Failed to load config, using defaults", "error", err)
+		// Set default embedder type
+		config = &Config{
+			Settings: Settings{
+				EmbedderType: "word2vec",
+			},
+		}
 	} else {
 		// Apply settings from config
 		if config.Settings.SearchResultLimit > 0 {
@@ -57,11 +65,20 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 			logger.Info("Using custom search result limit", "limit", config.Settings.SearchResultLimit)
 		}
 
+		// Set default embedder type if not specified
+		if config.Settings.EmbedderType == "" {
+			config.Settings.EmbedderType = "word2vec"
+		}
+
 		// Initialize external servers from config
 		if err := aggregator.initializeExternalServersFromConfig(ctx, config.ExternalServers); err != nil {
 			logger.Warn("Failed to initialize external servers, continuing without them", "error", err)
 		}
 	}
+
+	// Store embedder type
+	aggregator.embedderType = config.Settings.EmbedderType
+	logger.Info("Using embedder type", "type", aggregator.embedderType)
 
 	// Create MCP server
 	server := mcp.NewServer(
@@ -192,8 +209,20 @@ func (s *AggregatorServer) initializeVectorStore() error {
 		return nil
 	}
 
-	// Create TF-IDF embedder (pure Go, no external dependencies)
-	embedder := vectorstore.NewTFIDFEmbedder(s.logger)
+	// Select embedder based on configuration
+	var embedder vectorstore.EmbeddingGenerator
+
+	switch s.embedderType {
+	case "word2vec":
+		s.logger.Info("Creating Word2Vec embedder", "window_size", 5, "dimension", 100)
+		embedder = vectorstore.NewWord2VecEmbedder(5, 100) // window=5, dim=100
+	case "tfidf":
+		s.logger.Info("Creating TF-IDF embedder")
+		embedder = vectorstore.NewTFIDFEmbedder(s.logger)
+	default:
+		s.logger.Warn("Unknown embedder type, defaulting to word2vec", "type", s.embedderType)
+		embedder = vectorstore.NewWord2VecEmbedder(5, 100)
+	}
 
 	// Create vector store
 	store := vectorstore.NewInMemoryVectorStore(embedder, s.logger)
@@ -204,7 +233,7 @@ func (s *AggregatorServer) initializeVectorStore() error {
 	}
 
 	s.vectorStore = store
-	s.logger.Info("Vector store initialized successfully", "indexed_tools", store.GetToolCount())
+	s.logger.Info("Vector store initialized successfully", "embedder_type", s.embedderType, "indexed_tools", store.GetToolCount())
 
 	return nil
 }
