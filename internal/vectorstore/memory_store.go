@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/radutopala/onemcp/internal/tools"
 )
@@ -16,6 +17,7 @@ type InMemoryVectorStore struct {
 	embedder   EmbeddingGenerator
 	dimension  int
 	logger     *slog.Logger
+	mu         sync.RWMutex // Protects embeddings and embedder during hot-swap
 }
 
 // NewInMemoryVectorStore creates a new in-memory vector store
@@ -69,6 +71,9 @@ func (s *InMemoryVectorStore) BuildFromTools(allTools []*tools.Tool) error {
 
 // Search finds tools semantically similar to the query
 func (s *InMemoryVectorStore) Search(query string, topK int) ([]*tools.Tool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if len(s.embeddings) == 0 {
 		return []*tools.Tool{}, nil
 	}
@@ -113,7 +118,65 @@ func (s *InMemoryVectorStore) Search(query string, topK int) ([]*tools.Tool, err
 
 // GetToolCount returns the number of tools indexed
 func (s *InMemoryVectorStore) GetToolCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return len(s.embeddings)
+}
+
+// RebuildWithEmbedder rebuilds the vector store with a new embedder
+// This is useful for hot-swapping embedders (e.g., TF-IDF -> GloVe)
+func (s *InMemoryVectorStore) RebuildWithEmbedder(newEmbedder EmbeddingGenerator) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.logger.Info("Rebuilding vector store with new embedder")
+
+	// Extract tools from current embeddings
+	allTools := make([]*tools.Tool, len(s.embeddings))
+	for i, te := range s.embeddings {
+		allTools[i] = te.Tool
+	}
+
+	// Update embedder
+	s.embedder = newEmbedder
+	s.dimension = newEmbedder.Dimension()
+
+	// Clear old embeddings
+	s.embeddings = make([]*ToolEmbedding, 0, len(allTools))
+
+	// If using TF-IDF, build vocabulary first
+	if tfidfEmbedder, ok := s.embedder.(*TFIDFEmbedder); ok {
+		documents := make([]string, len(allTools))
+		for i, tool := range allTools {
+			documents[i] = s.createSearchableText(tool)
+		}
+		tfidfEmbedder.BuildVocabulary(documents)
+		s.dimension = tfidfEmbedder.Dimension()
+	}
+
+	// Re-generate embeddings with new embedder
+	for _, tool := range allTools {
+		searchText := s.createSearchableText(tool)
+
+		embedding, err := s.embedder.Generate(searchText)
+		if err != nil {
+			s.logger.Warn("Failed to generate embedding for tool",
+				"tool", tool.Name,
+				"error", err)
+			continue
+		}
+
+		s.embeddings = append(s.embeddings, &ToolEmbedding{
+			Tool:      tool,
+			Embedding: embedding,
+		})
+	}
+
+	s.logger.Info("Vector store rebuilt successfully",
+		"indexed_tools", len(s.embeddings),
+		"dimension", s.dimension)
+
+	return nil
 }
 
 // createSearchableText creates a text representation of a tool for embedding

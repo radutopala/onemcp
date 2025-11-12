@@ -91,11 +91,11 @@ OneMCP supports two embedding strategies for tool discovery:
 
 #### 2. **GloVe** (Recommended for Best Quality)
 - **Best for:** True semantic understanding ("screenshot" ≈ "capture")
-- **Speed:** Fast after first download (~5s to load 100d model)
-- **Quality:** State-of-the-art pre-trained embeddings
-- **Size:** Individual file download (no ZIP extraction needed)
-- **Auto-download:** Downloads only the needed model file from Internet Archive
-- **Use when:** You want best semantic search quality
+- **Speed:** Instant startup! Downloads in background, hot-swaps when ready
+- **Quality:** State-of-the-art pre-trained embeddings (400K vocabulary)
+- **Background download:** Starts with TF-IDF, upgrades to GloVe automatically (~30s for 331MB)
+- **Cached startup:** ~5 seconds to load 400K word vectors from disk
+- **Use when:** You want best semantic search quality without blocking startup
 
 ```json
 {

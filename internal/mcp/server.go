@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/radutopala/onemcp/internal/mcpclient"
 	"github.com/radutopala/onemcp/internal/tools"
@@ -227,16 +228,34 @@ func (s *AggregatorServer) initializeVectorStore() error {
 
 	// Select embedder based on configuration
 	var embedder vectorstore.EmbeddingGenerator
+	var asyncGloVeDownload bool
 
 	switch s.embedderType {
 	case "glove":
-		s.logger.Info("Creating GloVe embedder", "model", s.gloveModel, "cache_dir", s.gloveCacheDir)
-		gloveEmb, err := vectorstore.NewGloVeEmbedder(s.gloveModel, s.gloveCacheDir, s.logger)
-		if err != nil {
-			s.logger.Warn("Failed to create GloVe embedder, falling back to TF-IDF", "error", err)
+		// Check if GloVe model is already cached
+		modelConfig, ok := vectorstore.GetGloVeModelConfig(s.gloveModel)
+		if !ok {
+			s.logger.Warn("Unknown GloVe model, falling back to TF-IDF", "model", s.gloveModel)
 			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
+			break
+		}
+
+		modelPath := filepath.Join(s.gloveCacheDir, modelConfig.Filename)
+		if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+			// Model not cached - start with TF-IDF and download GloVe in background
+			s.logger.Info("GloVe model not cached, starting with TF-IDF and downloading in background", "model", s.gloveModel)
+			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
+			asyncGloVeDownload = true
 		} else {
-			embedder = gloveEmb
+			// Model cached - load immediately
+			s.logger.Info("Creating GloVe embedder from cached model", "model", s.gloveModel, "cache_dir", s.gloveCacheDir)
+			gloveEmb, err := vectorstore.NewGloVeEmbedder(s.gloveModel, s.gloveCacheDir, s.logger)
+			if err != nil {
+				s.logger.Warn("Failed to load cached GloVe model, falling back to TF-IDF", "error", err)
+				embedder = vectorstore.NewTFIDFEmbedder(s.logger)
+			} else {
+				embedder = gloveEmb
+			}
 		}
 	case "tfidf":
 		s.logger.Info("Creating TF-IDF embedder")
@@ -257,7 +276,37 @@ func (s *AggregatorServer) initializeVectorStore() error {
 	s.vectorStore = store
 	s.logger.Info("Vector store initialized successfully", "embedder_type", s.embedderType, "indexed_tools", store.GetToolCount())
 
+	// If we need to download GloVe in background, start the goroutine
+	if asyncGloVeDownload {
+		go s.downloadAndUpgradeToGloVe()
+	}
+
 	return nil
+}
+
+// downloadAndUpgradeToGloVe downloads GloVe model in background and hot-swaps the embedder
+func (s *AggregatorServer) downloadAndUpgradeToGloVe() {
+	s.logger.Info("Starting background GloVe download", "model", s.gloveModel)
+
+	// Download and create GloVe embedder
+	gloveEmb, err := vectorstore.NewGloVeEmbedder(s.gloveModel, s.gloveCacheDir, s.logger)
+	if err != nil {
+		s.logger.Error("Failed to download GloVe model in background", "error", err)
+		return
+	}
+
+	s.logger.Info("GloVe model downloaded, upgrading vector store")
+
+	// Rebuild vector store with GloVe embedder
+	if s.vectorStore != nil {
+		if inMemStore, ok := s.vectorStore.(*vectorstore.InMemoryVectorStore); ok {
+			if err := inMemStore.RebuildWithEmbedder(gloveEmb); err != nil {
+				s.logger.Error("Failed to rebuild vector store with GloVe", "error", err)
+				return
+			}
+			s.logger.Info("Successfully upgraded to GloVe embedder", "model", s.gloveModel)
+		}
+	}
 }
 
 // Close shuts down all external MCP server connections.

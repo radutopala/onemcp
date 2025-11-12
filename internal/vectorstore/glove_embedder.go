@@ -20,16 +20,25 @@ type GloVeEmbedder struct {
 	logger  *slog.Logger
 }
 
+// GloVeModelConfig holds configuration for a GloVe model
+type GloVeModelConfig struct {
+	URL      string
+	Filename string
+	Dim      int
+}
+
 // GloVe model configurations
-var gloveModels = map[string]struct {
-	url      string
-	filename string
-	dim      int
-}{
+var gloveModels = map[string]GloVeModelConfig{
 	"6B.50d":  {"https://archive.org/download/glove.6B.50d-300d/glove.6B.50d.txt", "glove.6B.50d.txt", 50},
 	"6B.100d": {"https://archive.org/download/glove.6B.50d-300d/glove.6B.100d.txt", "glove.6B.100d.txt", 100},
 	"6B.200d": {"https://archive.org/download/glove.6B.50d-300d/glove.6B.200d.txt", "glove.6B.200d.txt", 200},
 	"6B.300d": {"https://archive.org/download/glove.6B.50d-300d/glove.6B.300d.txt", "glove.6B.300d.txt", 300},
+}
+
+// GetGloVeModelConfig returns the configuration for a named GloVe model
+func GetGloVeModelConfig(modelName string) (GloVeModelConfig, bool) {
+	config, ok := gloveModels[modelName]
+	return config, ok
 }
 
 // NewGloVeEmbedder creates a new GloVe embedder
@@ -47,13 +56,13 @@ func NewGloVeEmbedder(modelName string, cacheDir string, logger *slog.Logger) (*
 	}
 
 	// Check if model file already exists
-	modelPath := filepath.Join(cacheDir, modelConfig.filename)
+	modelPath := filepath.Join(cacheDir, modelConfig.Filename)
 
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		logger.Info("GloVe model not found, downloading...", "model", modelName, "path", modelPath)
 
 		// Download file directly (no ZIP extraction needed)
-		if err := downloadGloVe(modelConfig.url, modelPath, logger); err != nil {
+		if err := downloadGloVe(modelConfig.URL, modelPath, logger); err != nil {
 			return nil, fmt.Errorf("failed to download GloVe model: %w", err)
 		}
 
@@ -68,11 +77,11 @@ func NewGloVeEmbedder(modelName string, cacheDir string, logger *slog.Logger) (*
 		return nil, fmt.Errorf("failed to load GloVe vectors: %w", err)
 	}
 
-	logger.Info("GloVe embedder ready", "model", modelName, "vocabulary_size", len(vectors), "dimension", modelConfig.dim)
+	logger.Info("GloVe embedder ready", "model", modelName, "vocabulary_size", len(vectors), "dimension", modelConfig.Dim)
 
 	return &GloVeEmbedder{
 		vectors: vectors,
-		dim:     modelConfig.dim,
+		dim:     modelConfig.Dim,
 		logger:  logger,
 	}, nil
 }

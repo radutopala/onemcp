@@ -211,7 +211,7 @@ func TestGloVeEmbedder_ModelNames(t *testing.T) {
 			config, ok := gloveModels[tc.modelName]
 			if tc.valid {
 				require.True(t, ok, "Model should be valid")
-				require.Equal(t, tc.dim, config.dim)
+				require.Equal(t, tc.dim, config.Dim)
 			} else {
 				require.False(t, ok, "Model should be invalid")
 			}
