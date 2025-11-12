@@ -48,7 +48,7 @@ func NewMCPClient(ctx context.Context, name string, config MCPServerConfig, logg
 	client := mcp.NewClient(
 		&mcp.Implementation{
 			Name:    "one-mcp-aggregator",
-			Version: "1.0.0",
+			Version: "0.2.0",
 		},
 		nil,
 	)
