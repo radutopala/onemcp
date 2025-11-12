@@ -60,12 +60,12 @@ Consider:
 
 Return ONLY the JSON array, no explanation.`, query, string(toolSchemas), topK, topK)
 
-	// Call copilot CLI
+	// Call copilot CLI in non-interactive mode
 	cmd := exec.Command(
 		s.copilotBinary,
 		"--model", s.model,
-		"--output-format", "json",
-		prompt,
+		"--allow-all-tools",
+		"--prompt", prompt,
 	)
 
 	var stdout, stderr bytes.Buffer
@@ -81,22 +81,8 @@ Return ONLY the JSON array, no explanation.`, query, string(toolSchemas), topK, 
 	// Log raw response for debugging
 	s.logger.Debug("Copilot raw response", "stdout", stdout.String())
 
-	// Parse Copilot's JSON response
-	var response struct {
-		Suggestion string `json:"suggestion"`
-	}
-
-	if err := json.Unmarshal(stdout.Bytes(), &response); err != nil {
-		return nil, fmt.Errorf("failed to parse copilot response: %w, output: %s", err, stdout.String())
-	}
-
-	s.logger.Debug("Parsed Copilot response", "suggestion", response.Suggestion)
-
-	if response.Suggestion == "" {
-		return nil, fmt.Errorf("no suggestion in copilot response")
-	}
-
-	responseText := response.Suggestion
+	// Copilot returns the response directly in stdout (not wrapped in JSON)
+	responseText := stdout.String()
 
 	// Parse the JSON array of tool names from Copilot's response
 	// Clean up markdown code blocks if present
