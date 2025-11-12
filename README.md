@@ -59,11 +59,10 @@ OneMCP Aggregator
 OneMCP includes several optimizations for token efficiency and speed:
 
 1. **Configurable Result Limit**: Returns 5 tools per search by default (configurable via `.onemcp.json`)
-2. **Semantic Search**: TF-IDF embeddings for fast, accurate keyword-based discovery
+2. **LLM-Powered Semantic Search**: Claude, Codex, or Copilot intelligently match queries to tools
 3. **Progressive Discovery**: Four detail levels (names_only → summary → detailed → full_schema)
 4. **Schema Caching**: External tool schemas cached at startup, no repeated fetching
-5. **In-Memory Vector Store**: Pre-computed embeddings for instant search
-6. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
+5. **Lazy Loading**: Schemas only sent when explicitly requested via detail_level
 
 **Token Usage Examples (default 5 tools):**
 - `names_only` search: ~50 tokens total
@@ -189,7 +188,7 @@ Create `.onemcp.json`:
 {
   "settings": {
     "searchResultLimit": 5,
-    "embedderType": "tfidf"
+    "searchProvider": "claude"
   },
   "mcpServers": {
     "playwright": {
@@ -245,10 +244,10 @@ Add to your MCP client config. For example, Claude Desktop (`~/Library/Applicati
 ## Meta-Tools API
 
 ### 1. `tool_search`
-Discover available tools with optional filtering. Uses **fuzzy matching** to handle typos and small variations. Returns **5 tools per query by default** (configurable via `.onemcp.json`).
+Discover available tools with optional filtering. Uses **LLM-powered semantic search** to intelligently match your query to the most relevant tools. Returns **5 tools per query by default** (configurable via `.onemcp.json`).
 
 **Arguments:**
-- `query` (optional) - Search term to filter by name or description. Must be a single word for fuzzy matching (e.g., "browser", "navigate", "screenshot")
+- `query` (optional) - Search query in natural language (e.g., "take a screenshot", "navigate to webpage", "read files")
 - `category` (optional) - Filter by category (e.g., "browser", "filesystem")
 - `detail_level` (optional) - Level of detail to return:
   - `"names_only"` - Just tool names and categories (minimal tokens)
@@ -257,7 +256,7 @@ Discover available tools with optional filtering. Uses **fuzzy matching** to han
   - `"full_schema"` - Complete schema with all details
 - `offset` (optional) - Number of results to skip for pagination (default: 0)
 
-**Fuzzy Matching:** Query terms support fuzzy matching using Levenshtein distance, allowing small typos (e.g., "navgate" matches "navigate", "clik" matches "click"). The matching threshold adapts based on query length.
+**Semantic Search:** The LLM understands natural language queries, context, and intent. It matches your query to tool descriptions semantically, not just by keywords.
 
 **Schema Caching:** External tool schemas are cached at startup for fast repeated searches.
 
@@ -348,18 +347,17 @@ Configure OneMCP behavior:
 {
   "settings": {
     "searchResultLimit": 5,
-    "embedderType": "tfidf"
+    "searchProvider": "claude"
   }
 }
 ```
 
 **Available Settings:**
 - `searchResultLimit` (number) - Number of tools to return per search query. Default: 5. Lower values reduce token usage but require more searches for discovery.
-- `embedderType` (string) - Type of semantic search embedder. Options:
-  - `"tfidf"` (default) - Fast, accurate keyword matching. Works great with any tool set size.
-  - `"glove"` - Pre-trained GloVe embeddings. Best semantic understanding, auto-downloads model (~100MB).
-- `gloveModel` (string) - GloVe model to use. Options: `"6B.50d"`, `"6B.100d"` (default), `"6B.200d"`, `"6B.300d"`. Higher dimensions = better quality but larger download.
-- `gloveCacheDir` (string) - Directory to cache downloaded GloVe models. Default: `"/tmp/onemcp-glove"`.
+- `searchProvider` (string) - LLM provider for semantic search. Options: `"claude"` (default), `"codex"`, `"copilot"`. See "LLM-Powered Semantic Search" section above for details.
+- `claudeModel` (string) - Claude model to use when `searchProvider` is `"claude"`. Options: `"haiku"` (default), `"sonnet"`, `"opus"`.
+- `codexModel` (string) - Codex model to use when `searchProvider` is `"codex"`. Options: `"gpt-5-codex-mini"` (default), `"gpt-5-codex"`.
+- `copilotModel` (string) - Copilot model to use when `searchProvider` is `"copilot"`. Default: `"claude-haiku-4.5"`.
 
 ### External Server Configuration
 
@@ -510,7 +508,7 @@ Simply add to the `mcpServers` section in `.onemcp.json` - no code changes requi
 {
   "settings": {
     "searchResultLimit": 5,
-    "embedderType": "tfidf"
+    "searchProvider": "claude"
   },
   "mcpServers": {
     "your-server": {
