@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
+	
 
+	"github.com/radutopala/onemcp/internal/llmsearch"
 	"github.com/radutopala/onemcp/internal/mcpclient"
 	"github.com/radutopala/onemcp/internal/tools"
-	"github.com/radutopala/onemcp/internal/vectorstore"
 	"github.com/tidwall/jsonc"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -25,11 +25,10 @@ type Config struct {
 // Settings represents OneMCP settings
 type Settings struct {
 	SearchResultLimit int    `json:"searchResultLimit"` // Number of tools to return per search (default: 5)
-	EmbedderType      string `json:"embedderType"`      // Type of embedder: "tfidf", "glove", "claude", or "codex" (default: "tfidf")
-	GloVeModel        string `json:"gloveModel"`        // GloVe model: "6B.50d", "6B.100d", "6B.200d", "6B.300d" (default: "6B.100d")
-	GloveCacheDir     string `json:"gloveCacheDir"`     // Directory to cache GloVe models (default: "/tmp/onemcp-glove")
-	ClaudeModel       string `json:"claudeModel"`       // Claude model for embedder: "haiku", "sonnet", "opus" (default: "haiku")
-	CodexModel        string `json:"codexModel"`        // Codex model for embedder: "gpt-5-codex-mini", "gpt-5-codex", etc. (default: "gpt-5-codex-mini")
+	SearchProvider    string `json:"searchProvider"`    // LLM search provider: "claude", "codex", or "copilot" (default: "claude")
+	ClaudeModel       string `json:"claudeModel"`       // Claude model: "haiku", "sonnet", "opus" (default: "haiku")
+	CodexModel        string `json:"codexModel"`        // Codex model: "gpt-5-codex-mini", "gpt-5-codex", etc. (default: "gpt-5-codex-mini")
+	CopilotModel      string `json:"copilotModel"`      // Copilot model (default: "default")
 }
 
 // AggregatorServer implements a generic MCP aggregator
@@ -37,14 +36,13 @@ type AggregatorServer struct {
 	server            *mcp.Server
 	logger            *slog.Logger
 	registry          *tools.Registry
-	vectorStore       vectorstore.VectorStore // Semantic search engine
+	searchStore       llmsearch.SearchStore // LLM-powered semantic search
 	externalClients   map[string]*mcpclient.MCPClient
 	searchResultLimit int    // Number of tools to return per search
-	embedderType      string // Type of embedder to use (tfidf, glove, claude, or codex)
-	gloveModel        string // GloVe model to use
-	gloveCacheDir     string // GloVe cache directory
+	searchProvider    string // LLM search provider: claude, codex, or copilot
 	claudeModel       string // Claude model to use
 	codexModel        string // Codex model to use
+	copilotModel      string // Copilot model to use
 }
 
 // NewAggregatorServer creates a new generic aggregator server
@@ -62,10 +60,10 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	config, err := aggregator.loadConfig()
 	if err != nil {
 		logger.Warn("Failed to load config, using defaults", "error", err)
-		// Set default embedder type
+		// Set default search provider
 		config = &Config{
 			Settings: Settings{
-				EmbedderType: "tfidf",
+				SearchProvider: "claude",
 			},
 		}
 	} else {
@@ -75,9 +73,9 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 			logger.Info("Using custom search result limit", "limit", config.Settings.SearchResultLimit)
 		}
 
-		// Set default embedder type if not specified
-		if config.Settings.EmbedderType == "" {
-			config.Settings.EmbedderType = "tfidf"
+		// Set default search provider if not specified
+		if config.Settings.SearchProvider == "" {
+			config.Settings.SearchProvider = "claude"
 		}
 
 		// Initialize external servers from config
@@ -86,16 +84,8 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 		}
 	}
 
-	// Store embedder configuration
-	aggregator.embedderType = config.Settings.EmbedderType
-	aggregator.gloveModel = config.Settings.GloVeModel
-	if aggregator.gloveModel == "" {
-		aggregator.gloveModel = "6B.100d" // default
-	}
-	aggregator.gloveCacheDir = config.Settings.GloveCacheDir
-	if aggregator.gloveCacheDir == "" {
-		aggregator.gloveCacheDir = "/tmp/onemcp-glove" // default
-	}
+	// Store search provider configuration
+	aggregator.searchProvider = config.Settings.SearchProvider
 	aggregator.claudeModel = config.Settings.ClaudeModel
 	if aggregator.claudeModel == "" {
 		aggregator.claudeModel = "haiku" // default
@@ -104,7 +94,11 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	if aggregator.codexModel == "" {
 		aggregator.codexModel = "gpt-5-codex-mini" // default
 	}
-	logger.Info("Using embedder type", "type", aggregator.embedderType)
+	aggregator.copilotModel = config.Settings.CopilotModel
+	if aggregator.copilotModel == "" {
+		aggregator.copilotModel = "default" // default
+	}
+	logger.Info("Using search provider", "provider", aggregator.searchProvider)
 
 	// Create MCP server
 	server := mcp.NewServer(
@@ -123,7 +117,7 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	aggregator.server = server
 
 	// Initialize vector store for semantic search
-	if err := aggregator.initializeVectorStore(); err != nil {
+	if err := aggregator.initializeSearchStore(); err != nil {
 		logger.Warn("Failed to initialize vector store, semantic search disabled", "error", err)
 	}
 
@@ -228,131 +222,60 @@ func (s *AggregatorServer) connectExternalServer(ctx context.Context, name strin
 	return nil
 }
 
-// initializeVectorStore builds the in-memory vector store for semantic search
-func (s *AggregatorServer) initializeVectorStore() error {
+
+// initializeSearchStore builds the LLM-powered search store
+func (s *AggregatorServer) initializeSearchStore() error {
 	// Get all tools from registry
 	allTools := s.registry.ListAll()
 
 	if len(allTools) == 0 {
-		s.logger.Info("No tools to index in vector store")
+		s.logger.Info("No tools to index in search store")
 		return nil
 	}
 
-	// Select embedder based on configuration
-	var embedder vectorstore.EmbeddingGenerator
-	var asyncGloVeDownload bool
-	var claudeStore *vectorstore.ClaudeVectorStore
-	var codexStore *vectorstore.CodexVectorStore
+	var store llmsearch.SearchStore
+	var err error
 
-	switch s.embedderType {
+	// Create search store based on provider
+	switch s.searchProvider {
 	case "claude":
-		// Claude embedder doesn't use standard embedding - uses direct CLI calls
-		s.logger.Info("Creating Claude embedder", "model", s.claudeModel)
-		claudeEmb, err := vectorstore.NewClaudeEmbedder(s.claudeModel, s.logger)
+		s.logger.Info("Creating Claude searcher", "model", s.claudeModel)
+		searcher, err := llmsearch.NewClaudeSearcher(s.claudeModel, s.logger)
 		if err != nil {
-			s.logger.Warn("Failed to create Claude embedder, falling back to TF-IDF", "error", err)
-			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
-		} else {
-			// Claude uses a special store
-			claudeStore = vectorstore.NewClaudeVectorStore(claudeEmb, s.logger)
+			return fmt.Errorf("failed to create Claude searcher: %w", err)
 		}
+		store = llmsearch.NewClaudeSearchStore(searcher, s.logger)
+
 	case "codex":
-		// Codex embedder doesn't use standard embedding - uses direct CLI calls
-		s.logger.Info("Creating Codex embedder", "model", s.codexModel)
-		codexEmb, err := vectorstore.NewCodexEmbedder(s.codexModel, s.logger)
+		s.logger.Info("Creating Codex searcher", "model", s.codexModel)
+		searcher, err := llmsearch.NewCodexSearcher(s.codexModel, s.logger)
 		if err != nil {
-			s.logger.Warn("Failed to create Codex embedder, falling back to TF-IDF", "error", err)
-			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
-		} else {
-			// Codex uses a special store
-			codexStore = vectorstore.NewCodexVectorStore(codexEmb, s.logger)
+			return fmt.Errorf("failed to create Codex searcher: %w", err)
 		}
-	case "glove":
-		// Check if GloVe model is already cached
-		modelConfig, ok := vectorstore.GetGloVeModelConfig(s.gloveModel)
-		if !ok {
-			s.logger.Warn("Unknown GloVe model, falling back to TF-IDF", "model", s.gloveModel)
-			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
-			break
-		}
+		store = llmsearch.NewCodexSearchStore(searcher, s.logger)
 
-		modelPath := filepath.Join(s.gloveCacheDir, modelConfig.Filename)
-		if _, err := os.Stat(modelPath); os.IsNotExist(err) {
-			// Model not cached - start with TF-IDF and download GloVe in background
-			s.logger.Info("GloVe model not cached, starting with TF-IDF and downloading in background", "model", s.gloveModel)
-			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
-			asyncGloVeDownload = true
-		} else {
-			// Model cached - load immediately
-			s.logger.Info("Creating GloVe embedder from cached model", "model", s.gloveModel, "cache_dir", s.gloveCacheDir)
-			gloveEmb, err := vectorstore.NewGloVeEmbedder(s.gloveModel, s.gloveCacheDir, s.logger)
-			if err != nil {
-				s.logger.Warn("Failed to load cached GloVe model, falling back to TF-IDF", "error", err)
-				embedder = vectorstore.NewTFIDFEmbedder(s.logger)
-			} else {
-				embedder = gloveEmb
-			}
+	case "copilot":
+		s.logger.Info("Creating Copilot searcher", "model", s.copilotModel)
+		searcher, err := llmsearch.NewCopilotSearcher(s.copilotModel, s.logger)
+		if err != nil {
+			return fmt.Errorf("failed to create Copilot searcher: %w", err)
 		}
-	case "tfidf":
-		s.logger.Info("Creating TF-IDF embedder")
-		embedder = vectorstore.NewTFIDFEmbedder(s.logger)
+		store = llmsearch.NewCopilotSearchStore(searcher, s.logger)
+
 	default:
-		s.logger.Warn("Unknown embedder type, defaulting to tfidf", "type", s.embedderType)
-		embedder = vectorstore.NewTFIDFEmbedder(s.logger)
+		return fmt.Errorf("unknown search provider: %s (supported: claude, codex, copilot)", s.searchProvider)
 	}
 
-	// Create vector store (either Claude, Codex, or embedding-based)
-	var store vectorstore.VectorStore
-	if claudeStore != nil {
-		store = claudeStore
-	} else if codexStore != nil {
-		store = codexStore
-	} else {
-		store = vectorstore.NewInMemoryVectorStore(embedder, s.logger)
+	// Build search index from all tools
+	if err = store.BuildFromTools(allTools); err != nil {
+		return fmt.Errorf("failed to build search store: %w", err)
 	}
 
-	// Build index from all tools
-	if err := store.BuildFromTools(allTools); err != nil {
-		return fmt.Errorf("failed to build vector store: %w", err)
-	}
-
-	s.vectorStore = store
-	s.logger.Info("Vector store initialized successfully", "embedder_type", s.embedderType, "indexed_tools", store.GetToolCount())
-
-	// If we need to download GloVe in background, start the goroutine
-	if asyncGloVeDownload {
-		go s.downloadAndUpgradeToGloVe()
-	}
+	s.searchStore = store
+	s.logger.Info("Search store initialized successfully", "provider", s.searchProvider, "indexed_tools", store.GetToolCount())
 
 	return nil
 }
-
-// downloadAndUpgradeToGloVe downloads GloVe model in background and hot-swaps the embedder
-func (s *AggregatorServer) downloadAndUpgradeToGloVe() {
-	s.logger.Info("Starting background GloVe download", "model", s.gloveModel)
-
-	// Download and create GloVe embedder
-	gloveEmb, err := vectorstore.NewGloVeEmbedder(s.gloveModel, s.gloveCacheDir, s.logger)
-	if err != nil {
-		s.logger.Error("Failed to download GloVe model in background", "error", err)
-		return
-	}
-
-	s.logger.Info("GloVe model downloaded, upgrading vector store")
-
-	// Rebuild vector store with GloVe embedder
-	if s.vectorStore != nil {
-		if inMemStore, ok := s.vectorStore.(*vectorstore.InMemoryVectorStore); ok {
-			if err := inMemStore.RebuildWithEmbedder(gloveEmb); err != nil {
-				s.logger.Error("Failed to rebuild vector store with GloVe", "error", err)
-				return
-			}
-			s.logger.Info("Successfully upgraded to GloVe embedder", "model", s.gloveModel)
-		}
-	}
-}
-
-// Close shuts down all external MCP server connections.
 func (s *AggregatorServer) Close() error {
 	for name, client := range s.externalClients {
 		if err := client.Close(); err != nil {
@@ -414,9 +337,9 @@ func (s *AggregatorServer) handleToolSearch(ctx context.Context, req *mcp.CallTo
 	s.logger.Info("Tool search request", "query", input.Query, "category", input.Category, "detail_level", input.DetailLevel, "offset", offset, "limit", limit)
 
 	// Use semantic search with vector store
-	if s.vectorStore != nil {
+	if s.searchStore != nil {
 		var err error
-		foundTools, err = s.vectorStore.Search(input.Query, limit*3) // Get more results for filtering
+		foundTools, err = s.searchStore.Search(input.Query, limit*3) // Get more results for filtering
 		if err != nil {
 			s.logger.Error("Semantic search failed", "error", err)
 			foundTools = []*tools.Tool{} // Return empty results on error

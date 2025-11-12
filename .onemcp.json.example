@@ -6,30 +6,26 @@
     // Number of tools to return per search (default: 5)
     "searchResultLimit": 5,
 
-    // Type of embedder to use for semantic search:
-    // - "tfidf": Fast keyword-based search (~50MB RAM, instant)
-    // - "glove": Pre-trained word embeddings (~700MB RAM, instant, better semantics)
-    // - "claude": Uses Claude CLI for LLM-powered search (~10MB RAM, 3-5s per search)
-    // - "codex": Uses Codex CLI (OpenAI GPT) for LLM-powered search (~10MB RAM, 3-5s per search)
-    "embedderType": "glove",
+    // LLM search provider: "claude", "codex", or "copilot" (default: "claude")
+    // - "claude": Anthropic Claude models (haiku, sonnet, opus)
+    // - "codex": OpenAI GPT-5 Codex models
+    // - "copilot": GitHub Copilot AI
+    "searchProvider": "claude",
 
-    // GloVe model to use when embedderType is "glove"
-    // Options: "6B.50d", "6B.100d", "6B.200d", "6B.300d" (default: "6B.100d")
-    // Higher dimensions = better accuracy but more memory and slower
-    "gloveModel": "6B.100d",
-
-    // Directory to cache downloaded GloVe models (default: "/tmp/onemcp-glove")
-    "gloveCacheDir": "/tmp/onemcp-glove",
-
-    // Claude model to use when embedderType is "claude"
+    // Claude model to use when searchProvider is "claude"
     // Options: "haiku" (fast, default), "sonnet" (balanced), "opus" (highest quality)
     // Requires Claude CLI: brew install anthropics/claude/claude-code
     "claudeModel": "haiku",
 
-    // Codex model to use when embedderType is "codex"
-    // Options: "gpt-5-codex-mini" (default), "gpt-5-codex", etc.
-    // Requires Codex CLI (similar to Claude CLI)
-    "codexModel": "gpt-5-codex-mini"
+    // Codex model to use when searchProvider is "codex"
+    // Options: "gpt-5-codex-mini" (default), "gpt-5-codex"
+    // Requires Codex CLI
+    "codexModel": "gpt-5-codex-mini",
+
+    // Copilot model to use when searchProvider is "copilot"
+    // Default: "default"
+    // Requires GitHub CLI with Copilot: gh copilot
+    "copilotModel": "default"
   },
 
   "mcpServers": {

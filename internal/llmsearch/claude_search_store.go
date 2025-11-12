@@ -1,4 +1,4 @@
-package vectorstore
+package llmsearch
 
 import (
 	"encoding/json"
@@ -8,30 +8,30 @@ import (
 	"github.com/radutopala/onemcp/internal/tools"
 )
 
-// CodexVectorStore uses Codex CLI for semantic search without embeddings
-type CodexVectorStore struct {
-	embedder *CodexEmbedder
+// ClaudeSearchStore uses Claude CLI for semantic search without embeddings
+type ClaudeSearchStore struct {
+	embedder *ClaudeSearcher
 	tools    []*tools.Tool
 	schemas  []byte // Cached JSON schemas
 	logger   *slog.Logger
 }
 
-// NewCodexVectorStore creates a vector store that uses Codex CLI
-func NewCodexVectorStore(embedder *CodexEmbedder, logger *slog.Logger) *CodexVectorStore {
-	return &CodexVectorStore{
+// NewClaudeSearchStore creates a vector store that uses Claude CLI
+func NewClaudeSearchStore(embedder *ClaudeSearcher, logger *slog.Logger) *ClaudeSearchStore {
+	return &ClaudeSearchStore{
 		embedder: embedder,
 		tools:    make([]*tools.Tool, 0),
 		logger:   logger,
 	}
 }
 
-// BuildFromTools caches tool schemas for Codex queries
-func (s *CodexVectorStore) BuildFromTools(allTools []*tools.Tool) error {
-	s.logger.Info("Building Codex vector store", "tool_count", len(allTools))
+// BuildFromTools caches tool schemas for Claude queries
+func (s *ClaudeSearchStore) BuildFromTools(allTools []*tools.Tool) error {
+	s.logger.Info("Building Claude vector store", "tool_count", len(allTools))
 
 	s.tools = allTools
 
-	// Build tool metadata with full schemas for Codex
+	// Build tool metadata with full schemas for Claude
 	toolSchemas := make([]tools.ToolMetadata, len(allTools))
 	for i, tool := range allTools {
 		metadata := tools.ToolMetadata{
@@ -50,7 +50,7 @@ func (s *CodexVectorStore) BuildFromTools(allTools []*tools.Tool) error {
 		toolSchemas[i] = metadata
 	}
 
-	// Marshal to JSON for Codex
+	// Marshal to JSON for Claude
 	schemas, err := json.Marshal(toolSchemas)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tool schemas: %w", err)
@@ -58,21 +58,21 @@ func (s *CodexVectorStore) BuildFromTools(allTools []*tools.Tool) error {
 
 	s.schemas = schemas
 
-	s.logger.Info("Codex vector store built", "tool_count", len(s.tools), "schema_size_kb", len(schemas)/1024)
+	s.logger.Info("Claude vector store built", "tool_count", len(s.tools), "schema_size_kb", len(schemas)/1024)
 
 	return nil
 }
 
-// Search uses Codex CLI to find relevant tools
-func (s *CodexVectorStore) Search(query string, topK int) ([]*tools.Tool, error) {
+// Search uses Claude CLI to find relevant tools
+func (s *ClaudeSearchStore) Search(query string, topK int) ([]*tools.Tool, error) {
 	if len(s.tools) == 0 {
 		return []*tools.Tool{}, nil
 	}
 
-	// Ask Codex to rank tools
+	// Ask Claude to rank tools
 	toolNames, err := s.embedder.SearchTools(query, s.schemas, topK)
 	if err != nil {
-		return nil, fmt.Errorf("codex search failed: %w", err)
+		return nil, fmt.Errorf("claude search failed: %w", err)
 	}
 
 	// Map tool names back to tool objects
@@ -88,12 +88,12 @@ func (s *CodexVectorStore) Search(query string, topK int) ([]*tools.Tool, error)
 		}
 	}
 
-	s.logger.Debug("Codex search results", "query", query, "requested", topK, "returned", len(results))
+	s.logger.Debug("Claude search results", "query", query, "requested", topK, "returned", len(results))
 
 	return results, nil
 }
 
 // GetToolCount returns the number of tools indexed
-func (s *CodexVectorStore) GetToolCount() int {
+func (s *ClaudeSearchStore) GetToolCount() int {
 	return len(s.tools)
 }

@@ -19,7 +19,7 @@ func TestLoadConfigWithComments(t *testing.T) {
   // This is a comment
   "settings": {
     "searchResultLimit": 10,  // Another comment
-    "embedderType": "tfidf"   /* Block comment */
+    "searchProvider": "claude"   /* Block comment */
   },
   /* Multi-line
      comment */
@@ -54,7 +54,7 @@ func TestLoadConfigWithComments(t *testing.T) {
 
 	// Verify settings
 	require.Equal(t, 10, config.Settings.SearchResultLimit)
-	require.Equal(t, "tfidf", config.Settings.EmbedderType)
+	require.Equal(t, "claude", config.Settings.SearchProvider)
 
 	// Verify servers
 	require.Len(t, config.ExternalServers, 1)
@@ -75,8 +75,8 @@ func TestLoadConfigWithoutComments(t *testing.T) {
 	configContent := `{
   "settings": {
     "searchResultLimit": 15,
-    "embedderType": "glove",
-    "gloveModel": "6B.50d"
+    "searchProvider": "codex",
+    "codexModel": "gpt-5-codex-mini"
   },
   "mcpServers": {}
 }`
@@ -102,8 +102,8 @@ func TestLoadConfigWithoutComments(t *testing.T) {
 
 	// Verify settings
 	require.Equal(t, 15, config.Settings.SearchResultLimit)
-	require.Equal(t, "glove", config.Settings.EmbedderType)
-	require.Equal(t, "6B.50d", config.Settings.GloVeModel)
+	require.Equal(t, "codex", config.Settings.SearchProvider)
+	require.Equal(t, "gpt-5-codex-mini", config.Settings.CodexModel)
 
 	// Verify no servers
 	require.Len(t, config.ExternalServers, 0)

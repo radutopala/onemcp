@@ -1,4 +1,4 @@
-package vectorstore
+package llmsearch
 
 import (
 	"bytes"
@@ -9,15 +9,15 @@ import (
 	"strings"
 )
 
-// CodexEmbedder uses Codex CLI to semantically match queries against tools
-type CodexEmbedder struct {
+// CodexSearcher uses Codex CLI to semantically match queries against tools
+type CodexSearcher struct {
 	model       string
 	codexBinary string
 	logger      *slog.Logger
 }
 
-// NewCodexEmbedder creates a new Codex-based embedder
-func NewCodexEmbedder(model string, logger *slog.Logger) (*CodexEmbedder, error) {
+// NewCodexSearcher creates a new Codex-based embedder
+func NewCodexSearcher(model string, logger *slog.Logger) (*CodexSearcher, error) {
 	// Default to gpt-5-codex-mini if not specified
 	if model == "" {
 		model = "gpt-5-codex-mini"
@@ -31,7 +31,7 @@ func NewCodexEmbedder(model string, logger *slog.Logger) (*CodexEmbedder, error)
 
 	logger.Info("Created Codex embedder", "model", model, "binary", codexPath)
 
-	return &CodexEmbedder{
+	return &CodexSearcher{
 		model:       model,
 		codexBinary: codexPath,
 		logger:      logger,
@@ -40,18 +40,18 @@ func NewCodexEmbedder(model string, logger *slog.Logger) (*CodexEmbedder, error)
 
 // Generate is not used for Codex embedder (we use direct search instead)
 // This satisfies the EmbeddingGenerator interface but shouldn't be called
-func (e *CodexEmbedder) Generate(text string) ([]float32, error) {
+func (e *CodexSearcher) Generate(text string) ([]float32, error) {
 	return nil, fmt.Errorf("Codex embedder doesn't support Generate() - use Search() directly")
 }
 
 // Dimension returns a dummy dimension (Codex doesn't use vector embeddings)
-func (e *CodexEmbedder) Dimension() int {
+func (e *CodexSearcher) Dimension() int {
 	return 0 // No vector embeddings
 }
 
 // SearchTools uses Codex to find relevant tools for a query
 // Returns tool names ranked by relevance
-func (e *CodexEmbedder) SearchTools(query string, toolSchemas []byte, topK int) ([]string, error) {
+func (e *CodexSearcher) SearchTools(query string, toolSchemas []byte, topK int) ([]string, error) {
 	// Build prompt for Codex
 	prompt := fmt.Sprintf(`You are helping match a user query to the most relevant tools.
 

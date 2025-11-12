@@ -70,105 +70,76 @@ OneMCP includes several optimizations for token efficiency and speed:
 - `summary` search: ~200-400 tokens total
 - `full_schema` search: ~2000-5000 tokens total
 
-### Semantic Search
+### LLM-Powered Semantic Search
 
-OneMCP supports three embedding strategies for tool discovery:
+OneMCP uses **LLM-powered semantic search** to intelligently match your queries to the right tools. Instead of exact keyword matching, it understands intent and context using AI models.
 
-#### 1. **TF-IDF** (Default)
-- **Best for:** Fast, zero-overhead keyword matching
-- **Speed:** Instant (no model loading)
-- **Quality:** Excellent for keyword-based search
-- **Size:** 0MB overhead
-- **Use when:** You want instant startup and good keyword matching
+**Example:** Query "take a picture of the page" → finds `browser_screenshot`
 
-```json
-{
-  "settings": {
-    "embedderType": "tfidf"
-  }
-}
-```
+Choose from 3 LLM providers based on your needs:
 
-#### 2. **GloVe** (Recommended for Best Quality)
-- **Best for:** True semantic understanding ("screenshot" ≈ "capture")
-- **Speed:** Instant startup! Downloads in background, hot-swaps when ready
-- **Quality:** State-of-the-art pre-trained embeddings (400K vocabulary)
-- **Background download:** Starts with TF-IDF, upgrades to GloVe automatically (~30s for 331MB)
-- **Cached startup:** ~5 seconds to load 400K word vectors from disk
-- **Use when:** You want best semantic search quality without blocking startup
+#### 1. **Claude** (Anthropic, Default)
+- **Best for:** Highest quality semantic understanding with Claude models
+- **Speed:** ~3-5 seconds per search
+- **Quality:** Excellent - Claude Haiku/Sonnet/Opus reason about tool descriptions
+- **Memory:** <10MB RAM
+- **Requirements:** Claude CLI (`brew install anthropics/claude/claude-code`)
+- **Cost:** Uses local Claude CLI
 
 ```json
 {
   "settings": {
-    "embedderType": "glove",
-    "gloveModel": "6B.100d",
-    "gloveCacheDir": "/tmp/onemcp-glove"
+    "searchProvider": "claude",
+    "claudeModel": "haiku"  // Options: "haiku" (fast, default), "sonnet", "opus"
   }
 }
 ```
 
-**Available GloVe models:**
-- `6B.50d` - 50 dimensions, 163MB download, 192K vocab, ~400MB RAM
-- `6B.100d` - 100 dimensions, 331MB download, 400K vocab, ~700MB RAM (recommended)
-- `6B.200d` - 200 dimensions, 661MB download, 400K vocab, ~1.3GB RAM
-- `6B.300d` - 300 dimensions, 990MB download, 400K vocab, ~2GB RAM
-
-**Memory Note:** GloVe keeps all 400K word vectors in RAM for query embedding at search time. RAM usage is ~2x the download size. For memory-constrained environments (<1GB available), use TF-IDF (<50MB RAM) which still provides good keyword-based search.
-
-**Example:** Query "capture page image" finds `browser_screenshot` because GloVe learned from 6 billion words that "capture", "screenshot", and "image" are semantically related.
-
-#### 3. **Claude** (Highest Quality, Requires Claude CLI)
-- **Best for:** Maximum semantic understanding and reasoning about tool capabilities
-- **Speed:** ~3-5 seconds per search (Claude API call)
-- **Quality:** Highest - Claude can reason about tool descriptions and parameters
-- **Memory:** <10MB RAM (no word vectors stored)
-- **Requirements:** Claude CLI installed (`brew install anthropics/claude/claude-code`)
-- **Use when:** You want the absolute best search quality and don't mind latency
+#### 2. **Codex** (OpenAI GPT-5)
+- **Best for:** OpenAI's latest Codex models for tool search
+- **Speed:** ~3-5 seconds per search
+- **Quality:** Excellent - GPT-5 Codex reasoning
+- **Memory:** <10MB RAM
+- **Requirements:** Codex CLI
+- **Cost:** Uses Codex CLI
 
 ```json
 {
   "settings": {
-    "embedderType": "claude",
-    "claudeModel": "haiku"  // Options: "haiku" (fast), "sonnet", "opus"
+    "searchProvider": "codex",
+    "codexModel": "gpt-5-codex-mini"  // Options: "gpt-5-codex-mini" (default), "gpt-5-codex"
   }
 }
 ```
 
-**How it works:** For each search, OneMCP calls the Claude CLI with all tool schemas and asks Claude to rank them by relevance. Claude can understand context, synonyms, and tool relationships better than any embedding model.
-
-**Performance:** 
-- First search: ~3-5 seconds
-- Uses local Claude CLI (no API costs with cached models)
-- Memory efficient: no embeddings stored
-
-#### 4. **Codex** (OpenAI Codex/GPT-5, Requires Codex CLI)
-- **Best for:** Alternative LLM-powered search with OpenAI Codex models
-- **Speed:** ~3-5 seconds per search (OpenAI API call)
-- **Quality:** Highest - GPT-5 Codex can reason about tool descriptions and parameters
-- **Memory:** <10MB RAM (no word vectors stored)
-- **Requirements:** Codex CLI installed (similar to Claude CLI)
-- **Use when:** You prefer OpenAI's Codex models or want to compare with Claude
+#### 3. **Copilot** (GitHub Copilot)
+- **Best for:** GitHub Copilot integration for tool discovery
+- **Speed:** ~3-5 seconds per search
+- **Quality:** Excellent - GitHub Copilot AI
+- **Memory:** <10MB RAM
+- **Requirements:** GitHub CLI with Copilot (`gh copilot`)
+- **Cost:** Requires GitHub Copilot subscription
 
 ```json
 {
   "settings": {
-    "embedderType": "codex",
-    "codexModel": "gpt-5-codex-mini"  // Options: "gpt-5-codex-mini", "gpt-5-codex", etc.
+    "searchProvider": "copilot",
+    "copilotModel": "default"
   }
 }
 ```
 
-**How it works:** Similar to Claude embedder - calls Codex CLI with tool schemas and asks GPT to rank them by relevance.
+**How it works:** For each search, OneMCP sends your query + all tool schemas to the LLM, which ranks tools by semantic relevance. The LLM understands context, synonyms, and intent far better than traditional keyword search.
 
-**Performance:** 
-- Search time: ~3-5 seconds
-- Uses Codex CLI
-- Memory efficient: no embeddings stored
+**Performance Comparison:**
 
-**Recommendation:** 
-- **Claude/Codex**: Best search quality, accepts latency (~4s per search), LLM reasoning
-- **GloVe**: Best balance of quality and speed, needs ~700MB RAM
-- **TF-IDF**: Fastest, <50MB RAM, good keyword matching
+| Provider | Latency | Memory | Quality | Requirements |
+|----------|---------|--------|---------|--------------|
+| Claude (haiku) | ~3s | <10MB | ⭐⭐⭐⭐⭐ | Claude CLI |
+| Codex (gpt-5-codex-mini) | ~3s | <10MB | ⭐⭐⭐⭐⭐ | Codex CLI |
+| Copilot | ~3s | <10MB | ⭐⭐⭐⭐⭐ | GitHub CLI + Copilot |
+
+**Recommendation:** Use **Claude with haiku** (default) for best balance of speed and quality.
 
 ## Technology
 

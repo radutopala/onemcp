@@ -32,9 +32,9 @@ func (s *AggregatorServerTestSuite) SetupTest() {
 	// Register test tools
 	s.registerTestTools(server)
 
-	// Initialize vector store after registering test tools
-	err = server.initializeVectorStore()
-	require.NoError(s.T(), err, "Failed to initialize vector store")
+	// Initialize search store after registering test tools
+	err = server.initializeSearchStore()
+	require.NoError(s.T(), err, "Failed to initialize search store")
 
 	s.server = server
 	s.ctx = context.Background()
@@ -228,13 +228,13 @@ func (s *AggregatorServerTestSuite) TestToolSearch_FixedLimit() {
 	require.LessOrEqual(s.T(), int(response["returned_count"].(float64)), 5, "Should return at most 5 tools")
 }
 
-// TestVectorStoreInitialization tests that vector store is initialized with tools
-func (s *AggregatorServerTestSuite) TestVectorStoreInitialization() {
-	// Verify vector store is initialized
-	require.NotNil(s.T(), s.server.vectorStore, "Vector store should be initialized")
+// TestSearchStoreInitialization tests that search store is initialized with tools
+func (s *AggregatorServerTestSuite) TestSearchStoreInitialization() {
+	// Verify search store is initialized
+	require.NotNil(s.T(), s.server.searchStore, "Search store should be initialized")
 
-	// Verify vector store has indexed tools
-	require.Greater(s.T(), s.server.vectorStore.GetToolCount(), 0, "Vector store should have indexed tools")
+	// Verify search store has indexed tools
+	require.Greater(s.T(), s.server.searchStore.GetToolCount(), 0, "Search store should have indexed tools")
 }
 
 // TestToolSearch_IncludesSchemaFile tests that search response includes schema file info

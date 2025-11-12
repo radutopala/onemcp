@@ -1,4 +1,4 @@
-package vectorstore
+package llmsearch
 
 import (
 	"bytes"
@@ -9,15 +9,15 @@ import (
 	"strings"
 )
 
-// ClaudeEmbedder uses Claude CLI to semantically match queries against tools
-type ClaudeEmbedder struct {
+// ClaudeSearcher uses Claude CLI to semantically match queries against tools
+type ClaudeSearcher struct {
 	model        string
 	claudeBinary string
 	logger       *slog.Logger
 }
 
-// NewClaudeEmbedder creates a new Claude-based embedder
-func NewClaudeEmbedder(model string, logger *slog.Logger) (*ClaudeEmbedder, error) {
+// NewClaudeSearcher creates a new Claude-based embedder
+func NewClaudeSearcher(model string, logger *slog.Logger) (*ClaudeSearcher, error) {
 	// Default to haiku if not specified
 	if model == "" {
 		model = "haiku"
@@ -31,7 +31,7 @@ func NewClaudeEmbedder(model string, logger *slog.Logger) (*ClaudeEmbedder, erro
 
 	logger.Info("Created Claude embedder", "model", model, "binary", claudePath)
 
-	return &ClaudeEmbedder{
+	return &ClaudeSearcher{
 		model:        model,
 		claudeBinary: claudePath,
 		logger:       logger,
@@ -40,18 +40,18 @@ func NewClaudeEmbedder(model string, logger *slog.Logger) (*ClaudeEmbedder, erro
 
 // Generate is not used for Claude embedder (we use direct search instead)
 // This satisfies the EmbeddingGenerator interface but shouldn't be called
-func (e *ClaudeEmbedder) Generate(text string) ([]float32, error) {
+func (e *ClaudeSearcher) Generate(text string) ([]float32, error) {
 	return nil, fmt.Errorf("Claude embedder doesn't support Generate() - use Search() directly")
 }
 
 // Dimension returns a dummy dimension (Claude doesn't use vector embeddings)
-func (e *ClaudeEmbedder) Dimension() int {
+func (e *ClaudeSearcher) Dimension() int {
 	return 0 // No vector embeddings
 }
 
 // SearchTools uses Claude to find relevant tools for a query
 // Returns tool names ranked by relevance
-func (e *ClaudeEmbedder) SearchTools(query string, toolSchemas []byte, topK int) ([]string, error) {
+func (e *ClaudeSearcher) SearchTools(query string, toolSchemas []byte, topK int) ([]string, error) {
 	// Build prompt for Claude
 	prompt := fmt.Sprintf(`You are helping match a user query to the most relevant tools.
 
