@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Mock Copilot CLI for testing
+# Parses arguments and returns mock stdout response
+
+query=""
+model="claude-haiku-4.5"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --model)
+      model="$2"
+      shift 2
+      ;;
+    --allow-all-tools)
+      shift
+      ;;
+    --prompt)
+      query="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+# Extract tool names from query if present
+# Mock response with tools that match the integration test mock servers
+if [[ "$query" == *"screenshot"* ]] || [[ "$query" == *"image"* ]] || [[ "$query" == *"capture"* ]]; then
+  tools='["browser_screenshot"]'
+elif [[ "$query" == *"navigate"* ]] || [[ "$query" == *"page"* ]] || [[ "$query" == *"browser"* ]]; then
+  tools='["browser_navigate"]'
+elif [[ "$query" == *"click"* ]]; then
+  tools='["browser_click"]'
+elif [[ "$query" == *"file"* ]] || [[ "$query" == *"read"* ]]; then
+  tools='["filesystem_read_file"]'
+elif [[ "$query" == *"write"* ]]; then
+  tools='["filesystem_write_file"]'
+elif [[ "$query" == *"directory"* ]] || [[ "$query" == *"list"* ]]; then
+  tools='["filesystem_list_directory"]'
+else
+  # Default: return tools from mock servers
+  tools='["browser_navigate", "browser_screenshot", "browser_click", "filesystem_read_file", "filesystem_write_file"]'
+fi
+
+# Return mock response in Copilot format (direct stdout with markdown)
+cat <<EOF
+\`\`\`json
+$tools
+\`\`\`
+EOF

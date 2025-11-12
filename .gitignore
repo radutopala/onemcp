@@ -22,3 +22,4 @@ go.work
 # Credentials
 .onemcp.json
 .mcp.json
+.onemcp-test.json
