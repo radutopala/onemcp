@@ -25,8 +25,14 @@ func main() {
 		defer logFile.Close()
 	}
 
+	// Set log level from environment or default to Info
+	logLevel := slog.LevelInfo
+	if os.Getenv("MCP_LOG_LEVEL") == "debug" {
+		logLevel = slog.LevelDebug
+	}
+
 	logger := slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	}))
 
 	ctx := context.Background()

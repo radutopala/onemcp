@@ -141,8 +141,32 @@ OneMCP supports three embedding strategies for tool discovery:
 - Uses local Claude CLI (no API costs with cached models)
 - Memory efficient: no embeddings stored
 
+#### 4. **Codex** (OpenAI GPT, Requires Codex CLI)
+- **Best for:** Alternative LLM-powered search with OpenAI models
+- **Speed:** ~3-5 seconds per search (OpenAI API call)
+- **Quality:** Highest - GPT-4o can reason about tool descriptions and parameters
+- **Memory:** <10MB RAM (no word vectors stored)
+- **Requirements:** Codex CLI installed (similar to Claude CLI)
+- **Use when:** You prefer OpenAI's models or want to compare with Claude
+
+```json
+{
+  "settings": {
+    "embedderType": "codex",
+    "codexModel": "gpt-4o"  // Options: "gpt-4o", "gpt-4o-mini", etc.
+  }
+}
+```
+
+**How it works:** Similar to Claude embedder - calls Codex CLI with tool schemas and asks GPT to rank them by relevance.
+
+**Performance:** 
+- Search time: ~3-5 seconds
+- Uses Codex CLI
+- Memory efficient: no embeddings stored
+
 **Recommendation:** 
-- **Claude**: Best search quality, accepts latency (~4s per search)
+- **Claude/Codex**: Best search quality, accepts latency (~4s per search), LLM reasoning
 - **GloVe**: Best balance of quality and speed, needs ~700MB RAM
 - **TF-IDF**: Fastest, <50MB RAM, good keyword matching
 

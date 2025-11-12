@@ -10,6 +10,7 @@
     // - "tfidf": Fast keyword-based search (~50MB RAM, instant)
     // - "glove": Pre-trained word embeddings (~700MB RAM, instant, better semantics)
     // - "claude": Uses Claude CLI for LLM-powered search (~10MB RAM, 3-5s per search)
+    // - "codex": Uses Codex CLI (OpenAI GPT) for LLM-powered search (~10MB RAM, 3-5s per search)
     "embedderType": "glove",
 
     // GloVe model to use when embedderType is "glove"
@@ -23,7 +24,12 @@
     // Claude model to use when embedderType is "claude"
     // Options: "haiku" (fast, default), "sonnet" (balanced), "opus" (highest quality)
     // Requires Claude CLI: brew install anthropics/claude/claude-code
-    "claudeModel": "haiku"
+    "claudeModel": "haiku",
+
+    // Codex model to use when embedderType is "codex"
+    // Options: "gpt-4o" (default), "gpt-4o-mini", etc.
+    // Requires Codex CLI (similar to Claude CLI)
+    "codexModel": "gpt-4o"
   },
 
   "mcpServers": {

@@ -60,15 +60,16 @@ Given this query: "%s"
 And these available tools (JSON array with name, description, category, parameters):
 %s
 
-Return ONLY a JSON array of the top %d most relevant tool names, ranked by relevance.
+Return ONLY a JSON array of EXACTLY %d tool names, ranked by relevance.
 Format: ["tool_name_1", "tool_name_2", ...]
+IMPORTANT: Return no more and no less than %d tools.
 
 Consider:
 - Semantic similarity between query and tool description
 - Tool category and parameters
 - Likely user intent
 
-Return ONLY the JSON array, no explanation.`, query, string(toolSchemas), topK)
+Return ONLY the JSON array, no explanation.`, query, string(toolSchemas), topK, topK)
 
 	// Call claude CLI with prompt as last argument
 	cmd := exec.Command(
@@ -92,6 +93,9 @@ Return ONLY the JSON array, no explanation.`, query, string(toolSchemas), topK)
 		return nil, fmt.Errorf("claude CLI failed: %w, stderr: %s", err, stderr.String())
 	}
 
+	// Log raw response for debugging
+	e.logger.Debug("Claude raw response", "stdout", stdout.String())
+
 	// Parse Claude's JSON response
 	// The CLI returns: {"type":"result","result":"...", ...}
 	var response struct {
@@ -102,6 +106,8 @@ Return ONLY the JSON array, no explanation.`, query, string(toolSchemas), topK)
 	if err := json.Unmarshal(stdout.Bytes(), &response); err != nil {
 		return nil, fmt.Errorf("failed to parse claude response: %w, output: %s", err, stdout.String())
 	}
+
+	e.logger.Debug("Parsed Claude response", "type", response.Type, "result", response.Result)
 
 	if response.Result == "" {
 		return nil, fmt.Errorf("no result in claude response")
