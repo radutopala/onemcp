@@ -109,11 +109,11 @@ OneMCP supports two embedding strategies for tool discovery:
 
 **Available GloVe models:**
 - `6B.50d` - 50 dimensions, 163MB download, 192K vocab, ~400MB RAM
-- `6B.100d` - 100 dimensions, 331MB download, 400K vocab, ~750MB RAM (recommended)
-- `6B.200d` - 200 dimensions, 661MB download, 400K vocab, ~1.4GB RAM
+- `6B.100d` - 100 dimensions, 331MB download, 400K vocab, ~700MB RAM (recommended)
+- `6B.200d` - 200 dimensions, 661MB download, 400K vocab, ~1.3GB RAM
 - `6B.300d` - 300 dimensions, 990MB download, 400K vocab, ~2GB RAM
 
-**Memory Note:** RAM usage is ~2-2.5x the download size due to Go map overhead. Use TF-IDF (<50MB RAM) for memory-constrained environments.
+**Memory Note:** GloVe keeps all 400K word vectors in RAM for query embedding at search time. RAM usage is ~2x the download size. For memory-constrained environments (<1GB available), use TF-IDF (<50MB RAM) which still provides good keyword-based search.
 
 **Example:** Query "capture page image" finds `browser_screenshot` because GloVe learned from 6 billion words that "capture", "screenshot", and "image" are semantically related.
 
