@@ -72,7 +72,7 @@ OneMCP includes several optimizations for token efficiency and speed:
 
 ### Semantic Search
 
-OneMCP supports two embedding strategies for tool discovery:
+OneMCP supports three embedding strategies for tool discovery:
 
 #### 1. **TF-IDF** (Default)
 - **Best for:** Fast, zero-overhead keyword matching
@@ -117,7 +117,34 @@ OneMCP supports two embedding strategies for tool discovery:
 
 **Example:** Query "capture page image" finds `browser_screenshot` because GloVe learned from 6 billion words that "capture", "screenshot", and "image" are semantically related.
 
-**Recommendation:** Use **GloVe** for best semantic search quality, or **TF-IDF** for instant startup and zero downloads.
+#### 3. **Claude** (Highest Quality, Requires Claude CLI)
+- **Best for:** Maximum semantic understanding and reasoning about tool capabilities
+- **Speed:** ~3-5 seconds per search (Claude API call)
+- **Quality:** Highest - Claude can reason about tool descriptions and parameters
+- **Memory:** <10MB RAM (no word vectors stored)
+- **Requirements:** Claude CLI installed (`brew install anthropics/claude/claude-code`)
+- **Use when:** You want the absolute best search quality and don't mind latency
+
+```json
+{
+  "settings": {
+    "embedderType": "claude",
+    "claudeModel": "haiku"  // Options: "haiku" (fast), "sonnet", "opus"
+  }
+}
+```
+
+**How it works:** For each search, OneMCP calls the Claude CLI with all tool schemas and asks Claude to rank them by relevance. Claude can understand context, synonyms, and tool relationships better than any embedding model.
+
+**Performance:** 
+- First search: ~3-5 seconds
+- Uses local Claude CLI (no API costs with cached models)
+- Memory efficient: no embeddings stored
+
+**Recommendation:** 
+- **Claude**: Best search quality, accepts latency (~4s per search)
+- **GloVe**: Best balance of quality and speed, needs ~700MB RAM
+- **TF-IDF**: Fastest, <50MB RAM, good keyword matching
 
 ## Technology
 

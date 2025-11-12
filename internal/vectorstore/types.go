@@ -11,6 +11,9 @@ type ToolEmbedding struct {
 
 // VectorStore defines the interface for vector-based search
 type VectorStore interface {
+	// BuildFromTools pre-computes embeddings/indexes for all tools
+	BuildFromTools(allTools []*tools.Tool) error
+
 	// Search finds tools semantically similar to the query
 	Search(query string, topK int) ([]*tools.Tool, error)
 

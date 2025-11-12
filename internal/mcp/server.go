@@ -25,9 +25,10 @@ type Config struct {
 // Settings represents OneMCP settings
 type Settings struct {
 	SearchResultLimit int    `json:"searchResultLimit"` // Number of tools to return per search (default: 5)
-	EmbedderType      string `json:"embedderType"`      // Type of embedder: "tfidf" or "glove" (default: "tfidf")
+	EmbedderType      string `json:"embedderType"`      // Type of embedder: "tfidf", "glove", or "claude" (default: "tfidf")
 	GloVeModel        string `json:"gloveModel"`        // GloVe model: "6B.50d", "6B.100d", "6B.200d", "6B.300d" (default: "6B.100d")
 	GloveCacheDir     string `json:"gloveCacheDir"`     // Directory to cache GloVe models (default: "/tmp/onemcp-glove")
+	ClaudeModel       string `json:"claudeModel"`       // Claude model for embedder: "haiku", "sonnet", "opus" (default: "haiku")
 }
 
 // AggregatorServer implements a generic MCP aggregator
@@ -38,9 +39,10 @@ type AggregatorServer struct {
 	vectorStore       vectorstore.VectorStore // Semantic search engine
 	externalClients   map[string]*mcpclient.MCPClient
 	searchResultLimit int    // Number of tools to return per search
-	embedderType      string // Type of embedder to use (tfidf or glove)
+	embedderType      string // Type of embedder to use (tfidf, glove, or claude)
 	gloveModel        string // GloVe model to use
 	gloveCacheDir     string // GloVe cache directory
+	claudeModel       string // Claude model to use
 }
 
 // NewAggregatorServer creates a new generic aggregator server
@@ -91,6 +93,10 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	aggregator.gloveCacheDir = config.Settings.GloveCacheDir
 	if aggregator.gloveCacheDir == "" {
 		aggregator.gloveCacheDir = "/tmp/onemcp-glove" // default
+	}
+	aggregator.claudeModel = config.Settings.ClaudeModel
+	if aggregator.claudeModel == "" {
+		aggregator.claudeModel = "haiku" // default
 	}
 	logger.Info("Using embedder type", "type", aggregator.embedderType)
 
@@ -229,8 +235,20 @@ func (s *AggregatorServer) initializeVectorStore() error {
 	// Select embedder based on configuration
 	var embedder vectorstore.EmbeddingGenerator
 	var asyncGloVeDownload bool
+	var claudeStore *vectorstore.ClaudeVectorStore
 
 	switch s.embedderType {
+	case "claude":
+		// Claude embedder doesn't use standard embedding - uses direct CLI calls
+		s.logger.Info("Creating Claude embedder", "model", s.claudeModel)
+		claudeEmb, err := vectorstore.NewClaudeEmbedder(s.claudeModel, "", s.logger)
+		if err != nil {
+			s.logger.Warn("Failed to create Claude embedder, falling back to TF-IDF", "error", err)
+			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
+		} else {
+			// Claude uses a special store
+			claudeStore = vectorstore.NewClaudeVectorStore(claudeEmb, s.logger)
+		}
 	case "glove":
 		// Check if GloVe model is already cached
 		modelConfig, ok := vectorstore.GetGloVeModelConfig(s.gloveModel)
@@ -265,8 +283,13 @@ func (s *AggregatorServer) initializeVectorStore() error {
 		embedder = vectorstore.NewTFIDFEmbedder(s.logger)
 	}
 
-	// Create vector store
-	store := vectorstore.NewInMemoryVectorStore(embedder, s.logger)
+	// Create vector store (either Claude or embedding-based)
+	var store vectorstore.VectorStore
+	if claudeStore != nil {
+		store = claudeStore
+	} else {
+		store = vectorstore.NewInMemoryVectorStore(embedder, s.logger)
+	}
 
 	// Build index from all tools
 	if err := store.BuildFromTools(allTools); err != nil {

@@ -6,15 +6,24 @@
     // Number of tools to return per search (default: 5)
     "searchResultLimit": 5,
 
-    // Type of embedder: "tfidf" (fast, default) or "glove" (better semantic understanding)
+    // Type of embedder to use for semantic search:
+    // - "tfidf": Fast keyword-based search (~50MB RAM, instant)
+    // - "glove": Pre-trained word embeddings (~700MB RAM, instant, better semantics)
+    // - "claude": Uses Claude CLI for LLM-powered search (~10MB RAM, 3-5s per search)
     "embedderType": "glove",
 
-    // GloVe model to use: "6B.50d", "6B.100d", "6B.200d", "6B.300d" (default: "6B.100d")
+    // GloVe model to use when embedderType is "glove"
+    // Options: "6B.50d", "6B.100d", "6B.200d", "6B.300d" (default: "6B.100d")
     // Higher dimensions = better accuracy but more memory and slower
     "gloveModel": "6B.100d",
 
     // Directory to cache downloaded GloVe models (default: "/tmp/onemcp-glove")
-    "gloveCacheDir": "/tmp/onemcp-glove"
+    "gloveCacheDir": "/tmp/onemcp-glove",
+
+    // Claude model to use when embedderType is "claude"
+    // Options: "haiku" (fast, default), "sonnet" (balanced), "opus" (highest quality)
+    // Requires Claude CLI: brew install anthropics/claude/claude-code
+    "claudeModel": "haiku"
   },
 
   "mcpServers": {
