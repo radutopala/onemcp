@@ -115,7 +115,7 @@ Choose from 3 LLM providers based on your needs:
 #### 3. **Copilot** (GitHub Copilot)
 - **Best for:** GitHub Copilot integration for tool discovery
 - **Speed:** ~3-5 seconds per search
-- **Quality:** Excellent - GitHub Copilot AI
+- **Quality:** Excellent - Uses Claude Haiku 4.5 via GitHub Copilot
 - **Memory:** <10MB RAM
 - **Requirements:** GitHub CLI with Copilot (`gh copilot`)
 - **Cost:** Requires GitHub Copilot subscription
@@ -124,7 +124,7 @@ Choose from 3 LLM providers based on your needs:
 {
   "settings": {
     "searchProvider": "copilot",
-    "copilotModel": "default"
+    "copilotModel": "claude-haiku-4.5"  // Default model
   }
 }
 ```

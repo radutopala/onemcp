@@ -18,9 +18,9 @@ type CopilotSearcher struct {
 
 // NewCopilotSearcher creates a new Copilot-based searcher
 func NewCopilotSearcher(model string, logger *slog.Logger) (*CopilotSearcher, error) {
-	// Default model (Copilot doesn't require model selection typically)
+	// Default to claude-haiku-4.5
 	if model == "" {
-		model = "default"
+		model = "claude-haiku-4.5"
 	}
 
 	// Find copilot binary (could be 'gh copilot' or standalone)

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	
 
 	"github.com/radutopala/onemcp/internal/llmsearch"
 	"github.com/radutopala/onemcp/internal/mcpclient"
@@ -28,7 +27,7 @@ type Settings struct {
 	SearchProvider    string `json:"searchProvider"`    // LLM search provider: "claude", "codex", or "copilot" (default: "claude")
 	ClaudeModel       string `json:"claudeModel"`       // Claude model: "haiku", "sonnet", "opus" (default: "haiku")
 	CodexModel        string `json:"codexModel"`        // Codex model: "gpt-5-codex-mini", "gpt-5-codex", etc. (default: "gpt-5-codex-mini")
-	CopilotModel      string `json:"copilotModel"`      // Copilot model (default: "default")
+	CopilotModel      string `json:"copilotModel"`      // Copilot model (default: "claude-haiku-4.5")
 }
 
 // AggregatorServer implements a generic MCP aggregator
@@ -96,7 +95,7 @@ func NewAggregatorServer(name, version string, logger *slog.Logger) (*Aggregator
 	}
 	aggregator.copilotModel = config.Settings.CopilotModel
 	if aggregator.copilotModel == "" {
-		aggregator.copilotModel = "default" // default
+		aggregator.copilotModel = "claude-haiku-4.5" // default
 	}
 	logger.Info("Using search provider", "provider", aggregator.searchProvider)
 
@@ -221,7 +220,6 @@ func (s *AggregatorServer) connectExternalServer(ctx context.Context, name strin
 	s.logger.Info("Connected to external MCP server", "name", name, "tools", len(externalTools))
 	return nil
 }
-
 
 // initializeSearchStore builds the LLM-powered search store
 func (s *AggregatorServer) initializeSearchStore() error {

@@ -23,9 +23,9 @@
     "codexModel": "gpt-5-codex-mini",
 
     // Copilot model to use when searchProvider is "copilot"
-    // Default: "default"
+    // Default: "claude-haiku-4.5"
     // Requires GitHub CLI with Copilot: gh copilot
-    "copilotModel": "default"
+    "copilotModel": "claude-haiku-4.5"
   },
 
   "mcpServers": {
