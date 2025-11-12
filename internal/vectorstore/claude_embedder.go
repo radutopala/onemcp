@@ -11,14 +11,13 @@ import (
 
 // ClaudeEmbedder uses Claude CLI to semantically match queries against tools
 type ClaudeEmbedder struct {
-	model          string
-	claudeBinary   string
-	schemaFilePath string
-	logger         *slog.Logger
+	model        string
+	claudeBinary string
+	logger       *slog.Logger
 }
 
 // NewClaudeEmbedder creates a new Claude-based embedder
-func NewClaudeEmbedder(model string, schemaFilePath string, logger *slog.Logger) (*ClaudeEmbedder, error) {
+func NewClaudeEmbedder(model string, logger *slog.Logger) (*ClaudeEmbedder, error) {
 	// Default to haiku if not specified
 	if model == "" {
 		model = "haiku"
@@ -33,10 +32,9 @@ func NewClaudeEmbedder(model string, schemaFilePath string, logger *slog.Logger)
 	logger.Info("Created Claude embedder", "model", model, "binary", claudePath)
 
 	return &ClaudeEmbedder{
-		model:          model,
-		claudeBinary:   claudePath,
-		schemaFilePath: schemaFilePath,
-		logger:         logger,
+		model:        model,
+		claudeBinary: claudePath,
+		logger:       logger,
 	}, nil
 }
 

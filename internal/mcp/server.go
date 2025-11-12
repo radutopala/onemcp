@@ -241,7 +241,7 @@ func (s *AggregatorServer) initializeVectorStore() error {
 	case "claude":
 		// Claude embedder doesn't use standard embedding - uses direct CLI calls
 		s.logger.Info("Creating Claude embedder", "model", s.claudeModel)
-		claudeEmb, err := vectorstore.NewClaudeEmbedder(s.claudeModel, "", s.logger)
+		claudeEmb, err := vectorstore.NewClaudeEmbedder(s.claudeModel, s.logger)
 		if err != nil {
 			s.logger.Warn("Failed to create Claude embedder, falling back to TF-IDF", "error", err)
 			embedder = vectorstore.NewTFIDFEmbedder(s.logger)
